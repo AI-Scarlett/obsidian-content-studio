@@ -2,13 +2,13 @@
 
 仓库：<https://github.com/AI-Scarlett/obsidian-content-studio>
 
-Release：<https://github.com/AI-Scarlett/obsidian-content-studio/releases/tag/0.1.1>
+Release：<https://github.com/AI-Scarlett/obsidian-content-studio/releases/tag/0.1.2>
 
 | 字段 | 内容 |
 | --- | --- |
 | Plugin ID | `content-studio` |
 | Name | `Mogao Content Studio` |
-| Version / tag | `0.1.1`（不加 `v`） |
+| Version / tag | `0.1.2`（不加 `v`） |
 | Author | `AI-Scarlett` |
 | Minimum Obsidian | `1.8.7` |
 | Desktop only | `true` |
@@ -29,8 +29,12 @@ Release：<https://github.com/AI-Scarlett/obsidian-content-studio/releases/tag/0
 - 仓库公开，根目录有 `README.md`、`LICENSE` 和 `manifest.json`；源码可读。
 - 默认分支为 `main`；目录读取默认分支最新的 manifest。
 - Release tag 与 manifest 的 version 完全一致。
-- Release 单独附带 `main.js`、`manifest.json`、`styles.css`；ZIP 是额外便捷安装包，不能代替这三个附件。
+- Release 仅附带 `main.js`、`manifest.json`、`styles.css`，由 GitHub Actions 构建，并有对应的来源证明。ZIP 与校验和仅保留为 Actions 构建产物，不附到 Release。
 - README 披露自动图片下载、文章/CSS 请求及 Cloudflare DNS 后备查询。
 - README 明确图片剪贴板能力和真实平台接收尚未验证的边界。
 
 官方说明：<https://docs.obsidian.md/Plugins/Releasing/Submit+your+plugin>。
+
+## 更新已提交的版本
+
+0.1.2 修复源码和 CSS 检查，发布流程提供来源证明。请在现有插件条目中重新运行检查，确保读取到默认分支和 `0.1.2` Release。Vault Enumeration 和 Clipboard Access 是保留功能的行为说明，具体范围见 [审核说明](review-response.md)。

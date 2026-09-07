@@ -1,16 +1,17 @@
 {
   "name": "obsidian-content-studio",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "description": "Turn Obsidian notes into styled WeChat, Zhihu, Xiaohongshu and X drafts.",
   "type": "module",
   "scripts": {
     "build": "node scripts/build.mjs",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test tests/*.test.ts",
-    "verify": "npm run typecheck && npm test && npm run build",
-    "demo": "node scripts/demo-server.mjs",
-    "package": "node scripts/package.mjs"
+    "test": "node --import tsx --import ./tests/register.mjs --test tests/*.test.ts",
+    "verify": "npm run lint && npm run lint:css && npm run typecheck && npm test && npm run build",
+    "package": "node scripts/package.mjs",
+    "lint": "eslint src --max-warnings 0",
+    "lint:css": "stylelint styles.css --max-warnings 0"
   },
   "dependencies": {
     "css-tree": "3.2.1",
@@ -22,15 +23,22 @@
     "twitter-text": "3.1.0"
   },
   "devDependencies": {
+    "@eslint/js": "9.39.5",
     "@types/css-tree": "2.3.11",
     "@types/markdown-it": "14.1.2",
     "@types/node": "24.10.1",
     "@types/twitter-text": "3.1.10",
     "esbuild": "0.28.2",
+    "eslint": "9.39.5",
+    "eslint-plugin-obsidianmd": "0.4.2",
     "jsdom": "27.4.0",
     "obsidian": "1.13.1",
+    "prettier": "3.9.6",
+    "stylelint": "16.26.1",
+    "stylelint-no-unsupported-browser-features": "8.1.1",
     "tsx": "4.23.13",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.69.0"
   },
   "license": "MIT",
   "repository": {

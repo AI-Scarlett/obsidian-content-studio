@@ -1,5 +1,23 @@
-import { build } from 'esbuild';
-import { builtinModules } from 'node:module';
-await build({entryPoints:['src/main.ts'],bundle:true,platform:'node',format:'cjs',target:'es2022',outfile:'main.js',external:['obsidian','electron',...builtinModules,...builtinModules.map(n=>`node:${n}`)],legalComments:'eof',footer:{js:'/* nosourcemap */'}});
-await build({entryPoints:['demo/main.ts'],bundle:true,platform:'browser',format:'esm',target:'es2022',outfile:'demo/app.js',legalComments:'eof'});
-console.log('Built Obsidian plugin and shared-UI preview.');
+import { build } from "esbuild";
+import { builtinModules } from "node:module";
+import { readFile } from "node:fs/promises";
+const license = await readFile("LICENSE", "utf8");
+const notices = await readFile("THIRD_PARTY_NOTICES.md", "utf8");
+await build({
+  entryPoints: ["src/main.ts"],
+  bundle: true,
+  platform: "node",
+  format: "cjs",
+  target: "es2022",
+  outfile: "main.js",
+  external: [
+    "obsidian",
+    ...builtinModules,
+    ...builtinModules.map((n) => `node:${n}`),
+  ],
+  legalComments: "eof",
+  footer: {
+    js: `/*\n${[license, notices].join("\n").replaceAll("*/", "* /")}\n*/`,
+  },
+});
+console.log("Built Obsidian plugin.");

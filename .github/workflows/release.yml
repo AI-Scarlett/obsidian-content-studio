@@ -1,0 +1,47 @@
+name: Release plugin
+on:
+  push:
+    tags: ["*.*.*"]
+permissions:
+  contents: read
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    env:
+      RELEASE_VERSION: ${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Check release version
+        run: node scripts/check-release.mjs
+      - run: npm ci
+      - run: npm run verify
+      - run: npm run package
+      - name: Attest release assets
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            main.js
+            manifest.json
+            styles.css
+      - name: Keep optional install package as a workflow artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: content-studio-${{ github.ref_name }}-package
+          path: dist/*.*
+      - name: Publish the three supported plugin files
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh release create "$RELEASE_VERSION"
+          main.js manifest.json styles.css
+          --verify-tag
+          --title "Mogao Content Studio $RELEASE_VERSION"
+          --notes-file "docs/releases/$RELEASE_VERSION.md"

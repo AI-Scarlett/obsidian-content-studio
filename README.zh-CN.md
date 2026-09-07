@@ -4,7 +4,7 @@
 
 把 Obsidian 笔记排成公众号、知乎、小红书和 X 内容。内置六套模板，也可以粘贴文章链接，提取版式并保存为自己的模板。
 
-**当前版本：0.1.1，桌面 Obsidian 插件。** 转换在本地完成；首版保留原文内容，提供平台排版与分段，无需模型 API，也不自动改写或发布。
+**当前版本：0.1.2，桌面 Obsidian 插件。** 转换在本地完成；首版保留原文内容，提供平台排版与分段，无需模型 API，也不自动改写或发布。
 
 ## 可以做什么
 
@@ -19,8 +19,8 @@
 
 ## 安装
 
-1. 在 [GitHub Releases](https://github.com/AI-Scarlett/obsidian-content-studio/releases/latest) 下载并解压 `content-studio-0.1.1.zip`。
-2. 将整个 `content-studio` 文件夹放入你的 Vault 的 `.obsidian/plugins/`。
+1. 在 [GitHub Releases](https://github.com/AI-Scarlett/obsidian-content-studio/releases/latest) 下载 `main.js`、`manifest.json`、`styles.css`。
+2. 在 Vault 中创建 `.obsidian/plugins/content-studio/`，把三个文件放入其中。
 3. 在 Obsidian 的 **设置 → 第三方插件** 中启用「Mogao Content Studio」。
 4. 打开一篇笔记，点击左侧报纸图标；也可执行命令 **Mogao Content Studio：排版当前笔记**，或右键笔记选择 **用墨稿排版**。
 
@@ -68,10 +68,11 @@
 npm ci
 npm run verify
 npm run package
-npm run demo
 ```
 
-浏览器预览：`http://127.0.0.1:39271`。预览使用与插件完全相同的工作台、渲染器、模板学习和卡片分页代码；示例笔记替代 Vault 文件读取，内容包通过浏览器下载为 ZIP。它没有访问用户 Vault 的能力。
+`verify` 包含官方 Obsidian ESLint（不允许警告）、CSS 兼容检查、类型检查和 68 项测试。开发用浏览器演示已从插件源码移出；请在 Obsidian 内验证真实笔记库操作。
+
+0.1.2 起，GitHub Actions 从版本标签构建插件，并为三个 Release 文件生成来源证明。Release 只附带 Obsidian 支持的三个文件；ZIP 和校验和保存在 Actions 构建产物，也可用 `npm run package` 本地生成。下载后可运行 `gh attestation verify main.js --repo AI-Scarlett/obsidian-content-studio` 验证来源；`styles.css` 和 `manifest.json` 同理。
 
 源码入口：`src/main.ts`；工作台：`src/ui/studio.ts`；平台渲染、模板、分页、下载逻辑：`src/core/`。
 
@@ -82,3 +83,7 @@ npm run demo
 选择或读取含外链图片的笔记、编辑正文增加外链图片、重试图片时，会访问这些图片 URL。链接学模板会访问所填文章和最多三份样式文件。不携带浏览器 Cookie 或账号凭据，也不把整篇笔记发送给模型服务。图片 URL 的路径、查询参数会发送给该 URL 的服务方。遇到 TUN 虚拟 IP 时，使用 Cloudflare DNS-over-HTTPS 仅查询目标域名。无遥测、后台同步或自动发布，详见 [数据与网络](docs/privacy.md)。
 
 MIT 开源协议。第三方依赖及许可见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。插件目录提交步骤见 [docs/submission.md](docs/submission.md)。
+
+## 审核中的行为提示
+
+“Vault Enumeration”对应用户打开笔记选择器时列出 Markdown 笔记路径，供搜索选择；不批量读取正文，也不发送路径列表。启动插件、读取当前笔记不会遍历整个库。“Clipboard Access”仅对应点击复制按钮后的写入，插件不读取、监听或上传系统剪贴板。这两个必要能力可能继续显示在审核行为说明中。详细处理见 [审核说明](docs/review-response.md)。

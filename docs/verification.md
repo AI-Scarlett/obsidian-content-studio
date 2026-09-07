@@ -1,24 +1,13 @@
-# Verification scope for 0.1.1
+# Verification scope for 0.1.2
 
-Validated on 2026-09-07. Run `npm ci && npm run verify && npm run package` to reproduce automated verification. CI runs the same checks. Tests use synthetic fixtures and do not need platform accounts or a private Vault.
+Run `npm ci && npm run verify && npm run package` using Node.js 22.15+ to reproduce verification. Source checks use `eslint-plugin-obsidianmd` 0.4.2's complete recommended rules with zero warnings allowed. CSS checks prohibit `!important` and use a conservative Chrome 120 compatibility profile. No Obsidian source rule is disabled.
 
-## Automated checks
+68 offline tests cover rendering, sanitization, template extraction/validation, style adjustments, X weighted-character splitting, public-address/redirect protection, Obsidian requestUrl DNS integration, image ordering/retry/cache/completeness, separate title/body copying, standalone image packages, the compiled plugin host, settings validation/search definitions, user-triggered note enumeration, and write-only clipboard behavior.
 
-60 tests cover Markdown and inline HTML rendering, sanitization, six templates, style extraction and validation, link references, X weighted-character splitting and lossless reassembly, public-network validation, attachment embedding, ordered concurrent image downloads, retry/cache handling, missing-image copy/export guards, image additions before rendering finishes, stale async results, portable image files, separate title/body copying (with images and body headings preserved), and the compiled plugin with a mocked Obsidian host.
+Card regression tests check CSS dimensions (720 × 960 before 1.5× PNG export), cover/body content and sanitized card input. These DOM tests do not measure actual browser pagination or replace native visual validation. Earlier browser/native checks exercised 1080 × 1440 cards and Obsidian 1.13.7, but native 0.1.2 behavior has not yet been rechecked after the DOM refactor.
 
-TypeScript checking, plugin/demo bundling, and production dependency audit passed. The release package includes readable bundled JavaScript. The installed plugin does not need node_modules or external runtime data files.
+Earlier real-note integration retained all 11 images in rendered HTML and the exported image files. Private notes, images, screenshots and machine-specific logs are excluded from the repository. The 0.1.2 regression suite uses synthetic fixtures.
 
-## Manual validation
+GitHub Actions repeats verification, builds from the exact version tag, and produces artifact attestations. Release assets are downloaded and checked against both their provenance and the local build. Only `main.js`, `manifest.json` and `styles.css` are attached to the release; optional ZIP/checksum packages are retained in Actions artifacts.
 
-The shared browser workbench was exercised with synthetic notes for platform/template switching, clipboard formats, persistent custom templates, link style learning and image-card export. A long synthetic article produced 17 cards without lost paragraphs. PNG exports were 1080 × 1440.
-
-Native Obsidian 1.13.7 on macOS was used to verify plugin registration, note selection, content-package saving and usable controls in a split pane. Responsive layout follows the plugin pane width: three columns on wide panes, a top template strip at intermediate widths, and a scrollable single column on narrow panes.
-
-A separate local integration check downloaded all 11 images from a real note using the production downloader; the renderer retained 11 embedded images and the portable export contained 11 image files, with no image warnings. Private notes, their images, native screenshots and machine-specific logs are excluded from the repository and releases.
-
-## Limits of this evidence
-
-- Rich clipboard HTML includes image bytes; actual WeChat, Zhihu, Xiaohongshu and X editor acceptance is not yet verified.
-- Native runtime validation used Obsidian 1.13.7. The declared minimum version is not a separately tested runtime.
-- Template learning was verified using public sample pages and synthetic article HTML. Specific reference pages may require login or fail extraction.
-- Mobile is unsupported. The plugin does not rewrite content with AI, upload media to a publishing platform, or publish automatically.
+Actual WeChat, Zhihu, Xiaohongshu and X editor acceptance is not yet verified. Mobile is unsupported. Static template learning does not reproduce dynamic articles pixel for pixel or call an AI service. The plugin does not upload media to platforms or publish automatically.

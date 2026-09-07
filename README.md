@@ -4,7 +4,7 @@ English | [简体中文](README.zh-CN.md)
 
 Format Obsidian notes for WeChat Official Accounts, Zhihu, Xiaohongshu and X. Choose one of six built-in templates, adjust typography and colors, or learn reusable styles from an article URL. The interface is currently in Simplified Chinese.
 
-Desktop only. Version 0.1.1. Requires Obsidian 1.8.7 or later; native validation was performed on 1.13.7. Formatting preserves your source text and runs locally. No AI account, API key or automatic publishing is required.
+Desktop only. Version 0.1.2. Requires Obsidian 1.8.7 or later; earlier native validation used 1.13.7. Version 0.1.2 has automated host and DOM regression coverage. Formatting preserves your source text and runs locally. No AI account, API key or automatic publishing is required.
 
 ## Features
 
@@ -21,8 +21,8 @@ Images are loaded automatically from Vault attachments and public HTTP(S) URLs w
 
 ## Installation
 
-1. Download `content-studio-0.1.1.zip` from [Releases](https://github.com/AI-Scarlett/obsidian-content-studio/releases/latest).
-2. Extract the `content-studio` folder into your Vault's `.obsidian/plugins/` directory. Alternatively, place the release's `main.js`, `manifest.json` and `styles.css` there.
+1. Download `main.js`, `manifest.json` and `styles.css` from [Releases](https://github.com/AI-Scarlett/obsidian-content-studio/releases/latest).
+2. Create `.obsidian/plugins/content-studio/` inside your Vault and place the three files in that folder.
 3. Enable **Mogao Content Studio** in Settings → Community plugins.
 4. Open a note and use the newspaper ribbon icon, the **排版当前笔记** command (format current note), or **用墨稿排版** in the note's context menu.
 
@@ -61,6 +61,8 @@ Long paragraphs are paginated for Xiaohongshu cards. An oversized indivisible ta
 - When the system DNS returns a TUN proxy's `198.18.0.0/15` fake addresses, the downloader queries **Cloudflare DNS-over-HTTPS** (`cloudflare-dns.com`) for the target hostname only. It does not send the article body or URL query to that DNS service.
 - The downloader validates public addresses and redirects and caps response size and time. It does not execute fetched scripts.
 - No telemetry, model service, background polling, automatic synchronization, automatic updates or automatic publication.
+- Vault enumeration occurs only when the user opens the note picker: it lists Markdown note paths for selection, without bulk-reading their bodies or transmitting the list. Opening the plugin or formatting the current note does not enumerate the Vault.
+- Clipboard access is write-only, triggered by the copy buttons. The plugin never reads the clipboard, monitors it, or uploads clipboard contents.
 - Settings and custom templates are stored in the plugin's `data.json`; exported drafts are stored in the Vault.
 
 See [Data and network details](docs/privacy.md).
@@ -71,10 +73,19 @@ See [Data and network details](docs/privacy.md).
 npm ci
 npm run verify
 npm run package
-npm run demo
 ```
 
-The optional preview server listens only on `127.0.0.1:39271`. It shares studio and rendering code with the plugin, uses synthetic notes, stores demo settings in browser localStorage, and downloads packages as ZIP files. It cannot read a Vault. Stop it with Ctrl+C.
+`npm run verify` includes the official Obsidian ESLint recommended rules (zero warnings required), CSS lint, type checks, and 68 regression tests. CSS is also checked against a conservative Chrome 120 compatibility profile. The development browser prototype was removed from the plugin source in 0.1.2; run the workbench inside Obsidian to test actual Vault behavior.
+
+Releases are built from version tags by [GitHub Actions](https://github.com/AI-Scarlett/obsidian-content-studio/actions/workflows/release.yml). Only the three supported plugin files are attached to a Release; optional ZIP/checksum packages are available as Actions artifacts or via `npm run package`. The workflow generates GitHub build-provenance attestations for all three release files. After downloading them, verify provenance with:
+
+```sh
+gh attestation verify main.js --repo AI-Scarlett/obsidian-content-studio
+gh attestation verify styles.css --repo AI-Scarlett/obsidian-content-studio
+gh attestation verify manifest.json --repo AI-Scarlett/obsidian-content-studio
+```
+
+See [Review response](docs/review-response.md) for the source, CSS, release and behavior checks.
 
 Source: `src/main.ts` (Obsidian host), `src/ui/studio.ts` (workbench), `src/core/` (rendering, images, templates and export). CI builds and tests the source. [Verification scope](docs/verification.md) · [Community submission guide](docs/submission.md) · [Report an issue](https://github.com/AI-Scarlett/obsidian-content-studio/issues).
 

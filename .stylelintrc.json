@@ -1,0 +1,12 @@
+{
+  "plugins": ["stylelint-no-unsupported-browser-features"],
+  "rules": {
+    "declaration-no-important": true,
+    "block-no-empty": true,
+    "color-no-invalid-hex": true,
+    "plugin/no-unsupported-browser-features": [
+      true,
+      { "browsers": ["Chrome 120"] }
+    ]
+  }
+}
