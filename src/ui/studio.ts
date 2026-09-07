@@ -1,0 +1,183 @@
+import { BUILTIN_TEMPLATES, userTemplate, validateTemplate, tuneTemplate } from '../core/templates';
+import { createCards, cardPng, type CardDeck } from '../core/cards';
+import { learnTemplate } from '../core/learn';
+import { portableMarkdown } from '../core/export';
+import { isEmbeddedImage, type ImageOptions, type ImageResult } from '../core/images';
+import { escapeHtml, htmlDocument, imageSources, renderDraft, splitThread, weightedLength } from '../core/render';
+import { DEFAULT_SETTINGS, PLATFORMS, type Draft, type Platform, type Rendered, type Settings, type Template } from '../core/types';
+
+export interface OutputFile { name:string; content:string|ArrayBuffer }
+export interface Host {
+  settings:Settings;
+  saveSettings(settings:Settings):Promise<void>;
+  chooseNote():Promise<Draft|null>;
+  currentNote():Promise<Draft|null>;
+  resolveImages(draft:Draft,remote:boolean,options?:ImageOptions):Promise<ImageResult>;
+  learnUrl(url:string):Promise<Template>;
+  copy(text:string,html?:string):Promise<void>;
+  saveFiles(files:OutputFile[],title:string):Promise<string>;
+}
+
+export class Studio {
+  private settings:Settings;
+  private draft:Draft={title:'',markdown:'',sourcePath:''};
+  private assets:Record<string,string>={};
+  private assetWarnings:string[]=[];
+  private rendered?:Rendered;
+  private imageJob?:{key:string;promise:Promise<void>};
+  private imageGeneration=0;
+  private template!:Template;
+  private fontSize=16;
+  private accent='#3d6254';
+  private busy=false;
+  private destroyed=false;
+  private renderTimer?:ReturnType<typeof setTimeout>;
+  private status!:HTMLElement;
+  private preview!:HTMLElement;
+  private cardDeck?:CardDeck;
+  private cardGeneration=0;
+  private previewMode:'article'|'thread'|'cards'='article';
+  private saveQueue:Promise<void>=Promise.resolve();
+  constructor(private root:HTMLElement,private host:Host) {
+    this.settings=structuredClone(host.settings||DEFAULT_SETTINGS);
+    this.template=this.templates().find(t=>t.id===this.settings.templateId)||BUILTIN_TEMPLATES[0];
+    this.fontSize=this.template.fontSize;this.accent=this.template.palette.accent;
+    this.mount();
+  }
+  private templates(){return [...BUILTIN_TEMPLATES,...this.settings.customTemplates];}
+  private q<T extends HTMLElement=HTMLElement>(selector:string):T {return this.root.querySelector<T>(selector)!;}
+  private tell(message:string,error=false){if(this.destroyed)return;this.status.textContent=message;this.status.classList.toggle('is-error',error);}
+  private async run(message:string,fn:()=>Promise<void>){if(this.busy||this.destroyed)return;this.busy=true;this.root.classList.add('is-busy');this.root.setAttribute('aria-busy','true');this.tell(message);const controls=Array.from(this.root.querySelectorAll<HTMLButtonElement|HTMLInputElement|HTMLSelectElement|HTMLTextAreaElement>('button,input,select,textarea'));const disabled=controls.map(el=>el.disabled);controls.forEach(el=>el.disabled=true);try{await fn();}catch(error){this.tell(error instanceof Error?error.message:String(error),true);}finally{controls.forEach((el,i)=>el.disabled=disabled[i]);this.busy=false;this.root.classList.remove('is-busy');this.root.removeAttribute('aria-busy');}}
+  private persist(){const snapshot=structuredClone(this.settings);this.saveQueue=this.saveQueue.catch(()=>{}).then(()=>this.host.saveSettings(snapshot));return this.saveQueue;}
+  private commitPreferences(){void this.persist().catch(error=>this.tell(`设置未保存：${error.message}`,true));}
+  private mount() {
+    this.root.classList.add('mg');
+    this.root.innerHTML=`<header class="mg-top"><div class="mg-brand"><span class="mg-mark">墨</span><div><h1>墨稿 <span>Content Studio</span></h1><p>一篇笔记，多种表达</p></div></div><div class="mg-note-actions"><button data-action="current" class="mg-button">读取当前笔记</button><button data-action="choose" class="mg-button mg-primary">选择笔记 <span>↗</span></button></div></header>
+      <nav class="mg-platforms" aria-label="发布平台">${Object.entries(PLATFORMS).map(([key,p])=>`<button data-platform="${key}"><span>${p.name}</span><small>${p.label}</small></button>`).join('')}<div class="mg-local"><i></i> 本地排版 · 手动发布</div></nav>
+      <div class="mg-workspace"><aside class="mg-library"><div class="mg-section-title"><h2>模板库</h2><span class="mg-template-count"></span></div><div class="mg-template-list"></div><div class="mg-library-bottom"><button data-action="learn" class="mg-button mg-learn">＋ 链接学模板</button><button data-action="import" class="mg-text-button">导入模板 JSON</button><input type="file" class="mg-file-input" accept="application/json,.json" hidden><p>遇到喜欢的文章版式，<br>把链接存成自己的模板。</p></div></aside>
+      <main class="mg-canvas"><div class="mg-canvas-toolbar"><div><span class="mg-overline">LIVE PREVIEW</span><p class="mg-source">选择一篇笔记开始</p></div><div class="mg-preview-modes"><button data-mode="article" class="is-selected">排版</button><button data-mode="thread">串文</button><button data-mode="cards">卡片</button></div></div><div class="mg-preview-scroll"><div class="mg-preview"></div></div><div class="mg-canvas-caption">预览为本地效果，平台粘贴后可再微调。</div></main>
+      <aside class="mg-settings"><div class="mg-settings-scroll"><div class="mg-section-title"><h2>排版稿</h2><span class="mg-note-badge">不改原笔记</span></div><label class="mg-field">标题<input class="mg-title-input" placeholder="读取笔记后可修改标题" maxlength="300"></label><details class="mg-editor"><summary>编辑正文 <span>Markdown</span></summary><textarea class="mg-markdown-input" spellcheck="false" placeholder="也可以直接粘贴 Markdown 内容…"></textarea></details><div class="mg-divider"></div><div class="mg-section-title"><h2>微调样式</h2><button class="mg-text-button" data-action="reset">重置</button></div><label class="mg-field">正文字号 <span class="mg-font-value"></span><input class="mg-font-input" type="range" min="12" max="24" step="1" value="16"></label><label class="mg-color-field">主题颜色<input class="mg-color-input" type="color" value="#3d6254"></label><label class="mg-check"><input class="mg-footnotes" type="checkbox"> 公众号文末保留链接</label><button data-action="images" class="mg-text-button mg-images">重新载入图片</button><p class="mg-image-status" role="status" aria-live="polite"></p><div class="mg-template-controls"><button data-action="save-template" class="mg-text-button">存为新模板</button><button data-action="export-template" class="mg-text-button">导出模板</button><button data-action="delete-template" class="mg-text-button mg-danger">删除</button></div><div class="mg-template-source"></div><div class="mg-divider"></div></div><div class="mg-output-area"><div class="mg-output-info"><span class="mg-overline">READY TO SHARE</span><h3 class="mg-output-name">公众号排版</h3><p class="mg-platform-hint"></p><div class="mg-counts"></div></div><button data-action="copy" class="mg-button mg-primary mg-full">复制排版</button><button data-action="export" class="mg-button mg-full">保存内容包</button><div class="mg-warnings" aria-live="polite"></div></div></aside></div><footer class="mg-status" role="status" aria-live="polite">选择笔记，或在右侧粘贴 Markdown 开始排版。</footer>`;
+    this.status=this.q('.mg-status');this.preview=this.q('.mg-preview');
+    const bind=(action:string,fn:()=>void)=>this.q(`[data-action="${action}"]`).addEventListener('click',()=>{if(!this.busy)fn();});
+    bind('current',()=>void this.run('正在读取笔记…',async()=>{const draft=await this.host.currentNote();if(!draft)throw new Error('没有活动笔记。请点击“选择笔记”。');await this.load(draft);}));
+    bind('choose',()=>void this.run('选择笔记…',async()=>{const draft=await this.host.chooseNote();if(draft)await this.load(draft);else this.tell('已取消选择。');}));
+    bind('learn',()=>this.learnDialog());bind('import',()=>this.q<HTMLInputElement>('.mg-file-input').click());
+    bind('reset',()=>this.selectTemplate(this.template.id));
+    bind('images',()=>void this.run('正在载入图片…',async()=>{if(!this.draft.markdown)throw new Error('请先读取笔记。');await this.refreshImages(true);this.tell(this.imageSummary(),this.missingImages().length>0);}));
+    bind('save-template',()=>this.nameDialog('存为新模板',`${this.template.name} · 自定义`,async name=>{const next=userTemplate(tuneTemplate(this.template,this.accent,this.fontSize),name);this.settings.customTemplates.push(next);await this.persist();this.selectTemplate(next.id);this.tell('新模板已保存，下次打开仍可使用。');}));
+    bind('export-template',()=>void this.run('保存模板…',async()=>{const t=userTemplate(tuneTemplate(this.template,this.accent,this.fontSize),this.template.name);const path=await this.host.saveFiles([{name:'template.json',content:JSON.stringify(t,null,2)}],`${t.name}-模板`);this.tell(`模板已保存：${path}`);}));
+    bind('delete-template',()=>{if(!this.template.id.startsWith('user-'))return;const id=this.template.id;const modal=this.dialog('删除自定义模板',`<p>删除“${escapeHtml(this.template.name)}”？已导出的内容不受影响。</p><button class="mg-button mg-primary" data-confirm>删除模板</button>`);modal.querySelector('[data-confirm]')!.addEventListener('click',()=>void this.run('删除模板…',async()=>{this.settings.customTemplates=this.settings.customTemplates.filter(t=>t.id!==id);await this.persist();this.selectTemplate('ink');modal.remove();this.tell('模板已删除。');}));});
+    bind('copy',()=>void this.run('准备复制…',()=>this.copy()));bind('export',()=>void this.run('正在生成内容包…',()=>this.export()));
+    this.root.querySelectorAll<HTMLElement>('[data-platform]').forEach(button=>button.addEventListener('click',()=>{if(this.busy)return;this.settings.platform=button.dataset.platform as Platform;this.previewMode='article';this.commitPreferences();this.render();}));
+    this.root.querySelectorAll<HTMLElement>('[data-mode]').forEach(button=>button.addEventListener('click',()=>{if(this.busy)return;this.previewMode=button.dataset.mode as typeof this.previewMode;this.render();}));
+    this.q<HTMLInputElement>('.mg-title-input').addEventListener('input',e=>{this.draft.title=(e.target as HTMLInputElement).value;this.debounce();});
+    this.q<HTMLTextAreaElement>('.mg-markdown-input').addEventListener('input',e=>{this.draft.markdown=(e.target as HTMLTextAreaElement).value;this.debounce();});
+    this.q<HTMLInputElement>('.mg-font-input').addEventListener('input',e=>{this.fontSize=Number((e.target as HTMLInputElement).value);this.render();});
+    this.q<HTMLInputElement>('.mg-color-input').addEventListener('input',e=>{this.accent=(e.target as HTMLInputElement).value;this.render();});
+    this.q<HTMLInputElement>('.mg-footnotes').addEventListener('change',e=>{this.settings.footnotes=(e.target as HTMLInputElement).checked;this.commitPreferences();this.render();});
+    this.q<HTMLInputElement>('.mg-file-input').addEventListener('change',event=>{const input=event.target as HTMLInputElement,file=input.files?.[0];input.value='';if(!file)return;void this.run('导入模板…',async()=>{if(file.size>500000)throw new Error('模板文件超过 500 KB。');const template=validateTemplate(JSON.parse(await file.text()));const imported={...template,id:`user-${crypto.randomUUID()}`};this.settings.customTemplates.push(imported);await this.persist();this.selectTemplate(imported.id);this.tell('模板已导入。');});});
+    this.paintTemplates();this.render();
+  }
+  async openDraft(draft:Draft){await this.run('读取笔记…',()=>this.load(draft));}
+  private async load(draft:Draft){
+    clearTimeout(this.renderTimer);this.imageGeneration++;this.imageJob=undefined;
+    this.draft=structuredClone(draft);this.assets={};this.assetWarnings=[];
+    this.q<HTMLInputElement>('.mg-title-input').value=draft.title;this.q<HTMLTextAreaElement>('.mg-markdown-input').value=draft.markdown;
+    this.render();await this.refreshImages();if(this.destroyed)return;
+    this.tell(`已读取 ${draft.sourcePath||'草稿'}。${this.imageSummary()}`,this.missingImages().length>0);
+  }
+  private imageKey(){return JSON.stringify([this.draft.sourcePath,imageSources(this.draft)]);}
+  private missingImages(){return imageSources(this.draft).filter(src=>!isEmbeddedImage(this.assets[src]));}
+  private imageSummary(){const total=imageSources(this.draft).length,missing=this.missingImages().length;return total?`图片已载入 ${total-missing} / ${total}${missing?'，请重试失败图片。':'，保留在正文原位置。'}`:'正文没有图片。';}
+  private async refreshImages(force=false){
+    const key=this.imageKey();
+    if(this.imageJob?.key===key&&!force)return this.imageJob.promise;
+    const generation=++this.imageGeneration,draft=structuredClone(this.draft);
+    const current=()=>!this.destroyed&&generation===this.imageGeneration&&key===this.imageKey();
+    const promise=(async()=>{
+      const result=await this.host.resolveImages(draft,true,{assets:force?{}:this.assets,onProgress:(loaded,total,finished)=>{
+        if(current()&&total)this.q('.mg-image-status').textContent=`正在载入图片：${finished} / ${total}，成功 ${loaded} 张…`;
+      }});
+      if(!current())return;
+      this.assets=result.assets;this.assetWarnings=result.warnings;this.render();
+    })();
+    this.imageJob={key,promise};
+    try{await promise;}finally{if(this.imageJob?.promise===promise)this.imageJob=undefined;}
+  }
+  private debounce(){clearTimeout(this.renderTimer);this.renderTimer=setTimeout(()=>{
+    if(this.destroyed)return;this.render();
+    void this.refreshImages().catch(error=>this.tell(`图片载入失败：${error.message}`,true));
+  },350);}
+  private paintTemplates(){this.q('.mg-template-count').textContent=String(this.templates().length).padStart(2,'0');const list=this.q('.mg-template-list');list.innerHTML=this.templates().map(t=>`<button class="mg-template ${t.id===this.template.id?'is-active':''}" data-template="${t.id}" aria-pressed="${t.id===this.template.id}"><div class="mg-template-thumb" style="background:${t.palette.paper};color:${t.palette.ink};--sample-accent:${t.palette.accent};--sample-soft:${t.palette.soft}"><span class="mg-sample-type ${t.heading}">好内容，值得被看见</span><i></i><i></i><i></i><em></em></div><div class="mg-template-label"><strong>${escapeHtml(t.name)}</strong><span>${t.source?'学习':'内置'}</span></div><p>${escapeHtml(t.description)}</p></button>`).join('');list.querySelectorAll<HTMLElement>('[data-template]').forEach(button=>button.addEventListener('click',()=>{if(!this.busy)this.selectTemplate(button.dataset.template!);}));}
+  private selectTemplate(id:string){this.template=this.templates().find(t=>t.id===id)||BUILTIN_TEMPLATES[0];this.fontSize=this.template.fontSize;this.accent=this.template.palette.accent;this.settings.templateId=this.template.id;this.commitPreferences();this.paintTemplates();this.render();}
+  private options(){return {platform:this.settings.platform,template:this.template,fontSize:this.fontSize,accent:this.accent,footnotes:this.settings.footnotes};}
+  private render(){
+    if(this.destroyed)return;
+    this.cardGeneration++;this.cardDeck?.dispose();this.cardDeck=undefined;
+    const platform=this.settings.platform;
+    this.root.querySelectorAll<HTMLElement>('[data-platform]').forEach(el=>{el.classList.toggle('is-active',el.dataset.platform===platform);el.setAttribute('aria-pressed',String(el.dataset.platform===platform));});
+    this.q('[data-mode="thread"]').hidden=platform!=='x';this.q('[data-mode="cards"]').hidden=platform!=='xiaohongshu';
+    this.root.querySelectorAll<HTMLElement>('[data-mode]').forEach(el=>el.classList.toggle('is-selected',el.dataset.mode===this.previewMode));
+    this.q('.mg-source').textContent=this.draft.sourcePath||'临时排版稿';
+    this.q('.mg-image-status').textContent=this.imageSummary();
+    this.q<HTMLInputElement>('.mg-font-input').value=String(this.fontSize);this.q('.mg-font-value').textContent=`${this.fontSize} px`;
+    if(/^#[\da-f]{6}$/i.test(this.accent))this.q<HTMLInputElement>('.mg-color-input').value=this.accent;
+    this.q<HTMLInputElement>('.mg-footnotes').checked=this.settings.footnotes;
+    this.q('[data-action="delete-template"]').hidden=!this.template.id.startsWith('user-');
+    const source=this.q('.mg-template-source');source.textContent=this.template.source?`来源：${this.template.source.url==='pasted-html'?'粘贴的 HTML':new URL(this.template.source.url).hostname} · ${this.template.source.evidence} 项样式特征`:'内置模板，可微调后另存。';
+    this.q('.mg-output-name').textContent=PLATFORMS[platform].name+(platform==='xiaohongshu'?'图文':'排版');this.q('.mg-platform-hint').textContent=PLATFORMS[platform].hint;
+    this.q('[data-action="copy"]').textContent=platform==='xiaohongshu'?'复制完整文案':platform==='x'&&this.previewMode==='thread'?'复制整组串文':'复制排版';
+    if(!this.draft.title&&!this.draft.markdown){this.rendered=undefined;this.preview.innerHTML='<div class="mg-empty"><span>一</span><h2>从一篇笔记开始</h2><p>选择 Obsidian 笔记，或粘贴 Markdown。<br>切换平台和模板，就能预览新的版式。</p></div>';this.q('.mg-counts').textContent='0 字';return;}
+    this.rendered=renderDraft({...this.draft,title:this.draft.title||'未命名草稿'},this.options(),this.assets);
+    const count=Array.from(this.rendered.plainText).length;
+    this.q('.mg-counts').textContent=`${count.toLocaleString()} 字符`+(platform==='x'?` · ${splitThread(this.rendered.plainText).length} 条串文`:'');
+    const warnings=[...new Set([...this.assetWarnings,...this.rendered.warnings])];
+    if(platform==='xiaohongshu'&&count>1000)warnings.push('文案超过常见的 1,000 字限制。完整内容可导出为卡片；复制文案前请在草稿中精简。');
+    if(platform==='xiaohongshu'&&Array.from(this.draft.title).length>20)warnings.push('标题超过常见的 20 字限制，请在发布前精简。');
+    this.q('.mg-warnings').innerHTML=warnings.map(w=>`<p>${escapeHtml(w)}</p>`).join('');
+    this.preview.classList.toggle('mg-thread-preview',this.previewMode==='thread');this.preview.classList.toggle('mg-deck-preview',this.previewMode==='cards');
+    if(this.previewMode==='thread'){
+      const threads=splitThread(this.rendered.plainText);this.preview.innerHTML=threads.map((text,i)=>`<section class="mg-tweet"><div class="mg-tweet-meta"><span>${i+1} / ${threads.length}</span><span>${weightedLength(text)} / 280</span></div><p>${escapeHtml(text)}</p><button class="mg-text-button" data-tweet="${i}">复制此条</button></section>`).join('');this.preview.querySelectorAll<HTMLElement>('[data-tweet]').forEach(el=>el.addEventListener('click',()=>void this.run('复制串文…',async()=>{await this.host.copy(threads[Number(el.dataset.tweet)]);this.tell(`第 ${Number(el.dataset.tweet)+1} 条已复制。`);})));}
+    else if(this.previewMode==='cards'){this.preview.innerHTML='<div class="mg-empty"><p>正在按内容分页…</p></div>';void this.paintCards(this.cardGeneration);}
+    else this.preview.innerHTML=this.rendered.html;
+  }
+  private async paintCards(generation:number){try{const deck=await createCards(this.rendered!.html,this.draft.title,{...this.template,palette:{...this.template.palette,accent:this.accent}});if(this.destroyed||generation!==this.cardGeneration){deck.dispose();return;}this.cardDeck=deck;this.preview.replaceChildren();for(const card of deck.cards){const frame=document.createElement('div');frame.className='mg-card-frame';frame.append(card.cloneNode(true));this.preview.append(frame);}this.tell(`已分页为 ${deck.cards.length} 张卡片，导出尺寸为 1080 × 1440。`);}catch(error){if(generation===this.cardGeneration){this.preview.textContent=error instanceof Error?error.message:String(error);this.tell(this.preview.textContent,true);}}}
+  private fresh(){clearTimeout(this.renderTimer);this.render();if(!this.rendered)throw new Error('请先选择笔记或输入正文。');return this.rendered;}
+  private async completeContent(){
+    clearTimeout(this.renderTimer);
+    await this.refreshImages();if(this.destroyed)throw new Error('工作台已关闭。');
+    const content=this.fresh(),missing=this.missingImages();
+    if(missing.length||content.warnings.some(w=>w.startsWith('图片未嵌入')))
+      throw new Error(`仍有 ${missing.length||1} 张图片未载入，已暂停复制或导出。请查看失败原因并点击“重新载入图片”。`);
+    return content;
+  }
+  private async copy(){
+    const textOnly=this.settings.platform==='xiaohongshu'||this.settings.platform==='x'&&this.previewMode==='thread';
+    const content=textOnly?this.fresh():await this.completeContent();
+    if(this.settings.platform==='xiaohongshu')await this.host.copy(content.plainText);
+    else if(textOnly)await this.host.copy(splitThread(content.plainText).join('\n\n—— 下一条 ——\n\n'));
+    else await this.host.copy(content.plainText,content.html);
+    const count=imageSources(this.draft).length;
+    this.tell(textOnly?'文案已复制；图片请通过内容包上传。':count?`已复制排版及 ${count} 张图片。粘贴后请等目标平台完成图片处理，再检查显示。`:'排版已复制，请到目标平台编辑器粘贴。');
+  }
+  private async export(){
+    await this.completeContent();
+    const content=this.fresh(),draft=structuredClone(this.draft),platform=this.settings.platform,template=structuredClone({...this.template,palette:{...this.template.palette,accent:this.accent}}),options=this.options();
+    const portable=portableMarkdown(content.markdown,this.assets);
+    const files:OutputFile[]=[{name:'article.html',content:htmlDocument(draft.title,content.html)},{name:'article.md',content:portable.markdown},{name:'caption.txt',content:content.plainText},{name:'template.json',content:JSON.stringify(userTemplate(tuneTemplate(this.template,this.accent,this.fontSize),template.name),null,2)},...portable.images];
+    let cardCount=0;
+    if(platform==='x')splitThread(content.plainText).forEach((text,i)=>files.push({name:`thread-${String(i+1).padStart(2,'0')}.txt`,content:text}));
+    if(platform==='xiaohongshu') {const deck=await createCards(content.html,draft.title,template);try{cardCount=deck.cards.length;for(const [i,card] of deck.cards.entries()){this.tell(`正在生成卡片 ${i+1} / ${deck.cards.length}…`);files.push({name:`card-${String(i+1).padStart(2,'0')}.png`,content:await cardPng(card)});}}finally{deck.dispose();}}
+    files.push({name:'manifest.json',content:JSON.stringify({version:1,pluginVersion:'0.1.0',title:draft.title,sourceNote:draft.sourcePath,platform,template:template.name,sourceTemplate:template.source||null,fontSize:options.fontSize,accent:options.accent,generatedAt:new Date().toISOString(),manualPublishOnly:true,warnings:[...this.assetWarnings,...content.warnings],cards:cardCount,files:files.map(f=>f.name)},null,2)});
+    const path=await this.host.saveFiles(files,draft.title||'未命名草稿');this.tell(`已保存 ${files.length} 个文件：${path}`);
+  }
+  private dialog(title:string,html:string):HTMLElement {this.root.querySelector('.mg-modal-overlay')?.remove();const overlay=document.createElement('div');overlay.className='mg-modal-overlay';overlay.innerHTML=`<section class="mg-modal" role="dialog" aria-modal="true" aria-label="${escapeHtml(title)}"><header><h2>${escapeHtml(title)}</h2><button class="mg-text-button" aria-label="关闭">✕</button></header><div class="mg-modal-content">${html}</div></section>`;this.root.append(overlay);const close=()=>{if(!this.busy)overlay.remove();};overlay.querySelector('header button')!.addEventListener('click',close);overlay.addEventListener('click',e=>{if(e.target===overlay)close();});overlay.addEventListener('keydown',e=>{if(e.key==='Escape'){close();e.stopPropagation();}});setTimeout(()=>overlay.querySelector<HTMLInputElement>('input,textarea')?.focus(),0);return overlay;}
+  private nameDialog(title:string,initial:string,save:(name:string)=>Promise<void>){const modal=this.dialog(title,`<label class="mg-field">模板名称<input data-name maxlength="60" value="${escapeHtml(initial)}"></label><button class="mg-button mg-primary" data-save>保存模板</button>`);modal.querySelector('[data-save]')!.addEventListener('click',()=>void this.run('保存模板…',async()=>{const name=modal.querySelector<HTMLInputElement>('[data-name]')!.value.trim();if(!name)throw new Error('请填写模板名称。');await save(name);modal.remove();}));}
+  private learnDialog(){
+    const modal=this.dialog('把喜欢的版式，存成自己的模板',`<p class="mg-modal-intro">粘贴公众号或网页文章链接，提取配色、字体、标题和引用样式。无需配置模型。</p><div class="mg-learn-tabs"><button class="mg-button is-active" data-learn-mode="url">文章链接</button><button class="mg-button" data-learn-mode="html">粘贴 HTML</button></div><label class="mg-field mg-url-field">文章链接<input data-url type="url" placeholder="https://mp.weixin.qq.com/s/…"></label><label class="mg-field mg-html-field" hidden>正文 HTML<textarea data-html placeholder="粘贴含样式的文章 HTML，适用于无法直接读取的页面。"></textarea></label><button class="mg-button mg-primary" data-learn>提取样式并预览</button><div class="mg-learn-result" aria-live="polite"></div>`);
+    let mode='url';let learned:Template|undefined;
+    modal.querySelectorAll<HTMLElement>('[data-learn-mode]').forEach(el=>el.addEventListener('click',()=>{if(this.busy)return;mode=el.dataset.learnMode!;modal.querySelector<HTMLElement>('.mg-url-field')!.hidden=mode!=='url';modal.querySelector<HTMLElement>('.mg-html-field')!.hidden=mode!=='html';modal.querySelectorAll('[data-learn-mode]').forEach(b=>b.classList.toggle('is-active',b===el));}));
+    modal.querySelector('[data-learn]')!.addEventListener('click',()=>void this.run('正在提取排版样式…',async()=>{const result=modal.querySelector<HTMLElement>('.mg-learn-result')!;try{learned=mode==='url'?await this.host.learnUrl(modal.querySelector<HTMLInputElement>('[data-url]')!.value.trim()):learnTemplate(modal.querySelector<HTMLTextAreaElement>('[data-html]')!.value);result.innerHTML=`<div class="mg-learn-success">已提取 ${learned.source!.evidence} 项样式特征 · ${learned.source!.confidence==='strong'?'样式信息较完整':'部分样式可复用'}</div><label class="mg-field">模板名称<input data-template-name maxlength="60" value="${escapeHtml(learned.name)}"></label><div class="mg-learn-swatches">${Object.values(learned.palette).map(c=>`<i style="background:${c}"></i>`).join('')}</div><div class="mg-learn-sample"></div><p class="mg-learn-notes">${learned.source!.notes.map(escapeHtml).join('<br>')}</p><button class="mg-button mg-primary" data-store>保存到模板库</button>`;const sample=this.draft.markdown?this.draft:{title:'好内容，值得被看见',markdown:'## 从一篇笔记开始\n\n把熟悉的内容换一种表达，让想法被更多人看见。**重点依然清晰。**\n\n> 用恰当的留白，让阅读更轻松。',sourcePath:''};result.querySelector('.mg-learn-sample')!.innerHTML=renderDraft(sample,{platform:'wechat',template:learned,fontSize:learned.fontSize,accent:learned.palette.accent,footnotes:false},this.assets).html;result.querySelector('[data-store]')!.addEventListener('click',()=>void this.run('保存学习模板…',async()=>{if(!learned)return;const name=result.querySelector<HTMLInputElement>('[data-template-name]')!.value.trim();const t=validateTemplate({...learned,name});this.settings.customTemplates.push(t);await this.persist();this.selectTemplate(t.id);modal.remove();this.tell('模板已保存并套用到当前草稿。');}));this.tell('样式提取完成，可在弹窗中预览并保存。');}catch(error){result.textContent=error instanceof Error?error.message:String(error);result.classList.add('is-error');throw error;}}));
+  }
+  destroy(){this.destroyed=true;this.imageGeneration++;clearTimeout(this.renderTimer);this.cardGeneration++;this.cardDeck?.dispose();this.root.replaceChildren();}
+}

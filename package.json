@@ -1,0 +1,40 @@
+{
+  "name": "obsidian-content-studio",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Turn Obsidian notes into styled WeChat, Zhihu, Xiaohongshu and X drafts.",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test tests/*.test.ts",
+    "verify": "npm run typecheck && npm test && npm run build",
+    "demo": "node scripts/demo-server.mjs",
+    "package": "node scripts/package.mjs"
+  },
+  "dependencies": {
+    "css-tree": "3.2.1",
+    "dompurify": "3.4.15",
+    "fflate": "0.8.3",
+    "html-to-image": "1.11.13",
+    "ipaddr.js": "2.3.0",
+    "markdown-it": "15.0.1",
+    "twitter-text": "3.1.0"
+  },
+  "devDependencies": {
+    "@types/css-tree": "2.3.11",
+    "@types/markdown-it": "14.1.2",
+    "@types/node": "24.10.1",
+    "@types/twitter-text": "3.1.10",
+    "esbuild": "0.28.2",
+    "jsdom": "27.4.0",
+    "obsidian": "1.13.1",
+    "tsx": "4.23.13",
+    "typescript": "5.9.3"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AI-Scarlett/obsidian-content-studio.git"
+  }
+}

@@ -1,0 +1,7 @@
+node_modules/
+main.js
+demo/app.js
+dist/
+artifacts/
+.DS_Store
+*.log
