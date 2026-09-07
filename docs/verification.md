@@ -1,10 +1,10 @@
-# Verification scope for 0.1.0
+# Verification scope for 0.1.1
 
 Validated on 2026-09-07. Run `npm ci && npm run verify && npm run package` to reproduce automated verification. CI runs the same checks. Tests use synthetic fixtures and do not need platform accounts or a private Vault.
 
 ## Automated checks
 
-58 tests cover Markdown and inline HTML rendering, sanitization, six templates, style extraction and validation, link references, X weighted-character splitting and lossless reassembly, public-network validation, attachment embedding, ordered concurrent image downloads, retry/cache handling, missing-image copy/export guards, image additions before rendering finishes, stale async results, portable image files, and the compiled plugin with a mocked Obsidian host.
+60 tests cover Markdown and inline HTML rendering, sanitization, six templates, style extraction and validation, link references, X weighted-character splitting and lossless reassembly, public-network validation, attachment embedding, ordered concurrent image downloads, retry/cache handling, missing-image copy/export guards, image additions before rendering finishes, stale async results, portable image files, separate title/body copying (with images and body headings preserved), and the compiled plugin with a mocked Obsidian host.
 
 TypeScript checking, plugin/demo bundling, and production dependency audit passed. The release package includes readable bundled JavaScript. The installed plugin does not need node_modules or external runtime data files.
 

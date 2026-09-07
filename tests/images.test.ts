@@ -68,3 +68,22 @@ test('late downloads for a previous draft cannot replace the current preview',as
     release(png);await old;await click(h,'copy');assert.equal(new JSDOM(h.clips[0].html).window.document.images.length,0);assert.match(h.clips[0].text,/新正文/);
   }finally{h.studio.destroy();h.root.remove();}
 });
+
+test('title and rich body copy separately while the preview and package keep the complete article',async()=>{
+  const h=harness();try{await h.studio.openDraft(draft('第一段\n\n![图](one.png)\n\n# 正文中的一级标题\n\n最后一段'));
+    await click(h,'copy-title');assert.deepEqual(h.clips[0],{text:'图文测试',html:undefined});
+    await click(h,'copy');const doc=new JSDOM(h.clips[1].html).window.document;
+    assert.ok(!doc.body.textContent!.includes('图文测试'));assert.ok(!h.clips[1].text.includes('图文测试'));
+    assert.equal(doc.querySelector('h1')!.textContent,'正文中的一级标题');assert.equal(doc.images.length,1);
+    assert.equal(h.root.querySelector('.mg-preview h1')!.textContent,'图文测试');
+    await click(h,'export');assert.match(String(h.packages[0].find(f=>f.name==='article.html')!.content),/图文测试/);
+  }finally{h.studio.destroy();h.root.remove();}
+});
+test('X thread copying omits the article title from both preview and copied payload',async()=>{
+  const h=harness();try{await h.studio.openDraft(draft('正文示例'));
+    h.root.querySelector<HTMLButtonElement>('[data-platform="x"]')!.click();h.root.querySelector<HTMLButtonElement>('[data-mode="thread"]')!.click();
+    assert.ok(!h.root.querySelector('.mg-tweet p')!.textContent!.includes('图文测试'));
+    await click(h,'copy');assert.equal(h.clips[0].text,'正文示例');assert.equal(h.clips[0].html,undefined);
+    await click(h,'export');assert.equal(h.packages[0].find(f=>f.name==='thread-01.txt')!.content,'正文示例');
+  }finally{h.studio.destroy();h.root.remove();}
+});

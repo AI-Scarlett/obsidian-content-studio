@@ -48,7 +48,7 @@ export async function downloadPublic(raw:string,kind:'html'|'css'|'image'='html'
       const transport=url.protocol==='https:'?https:http;
       let complete=false;
       const fail=(error:Error)=>{if(!complete){complete=true;clearTimeout(timeout);reject(error);}};
-      const req=transport.get(url,{agent:false,headers:{'User-Agent':'Mozilla/5.0 ContentStudio/0.1.0','Accept':kind==='html'?'text/html,application/xhtml+xml':kind==='css'?'text/css':'image/png,image/jpeg,image/webp,image/gif,image/avif','Accept-Encoding':'gzip, deflate, br'},lookup:(_hostname,options,callback)=>{if(typeof options==='object'&&options.all)(callback as any)(null,[chosen]);else (callback as any)(null,chosen.address,chosen.family);}},res=>{
+      const req=transport.get(url,{agent:false,headers:{'User-Agent':'Mozilla/5.0 ContentStudio/0.1.1','Accept':kind==='html'?'text/html,application/xhtml+xml':kind==='css'?'text/css':'image/png,image/jpeg,image/webp,image/gif,image/avif','Accept-Encoding':'gzip, deflate, br'},lookup:(_hostname,options,callback)=>{if(typeof options==='object'&&options.all)(callback as any)(null,[chosen]);else (callback as any)(null,chosen.address,chosen.family);}},res=>{
         if([301,302,303,307,308].includes(res.statusCode||0)) {
           const next=res.headers.location;res.destroy();clearTimeout(timeout);
           if(!next){fail(new Error('页面跳转缺少目标地址。'));return;}

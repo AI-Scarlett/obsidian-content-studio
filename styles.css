@@ -59,3 +59,6 @@
 }
 
 .mg .mg-image-status {font-size:11px;line-height:1.6;color:var(--mg-muted);margin:4px 0 12px;overflow-wrap:anywhere;}
+
+.mg .mg-copy-actions {display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;}
+.mg .mg-copy-actions .mg-button {min-width:0;white-space:normal;}

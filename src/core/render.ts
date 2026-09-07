@@ -69,7 +69,7 @@ export function renderDraft(draft:Draft,options:RenderOptions,assets:Record<stri
   Object.assign(shared,{'background-color':t.palette.paper,'padding':'28px 30px','max-width':'720px','box-sizing':'border-box','margin':'0 auto'});
   article.setAttribute('style',styleText(shared));
   article.setAttribute('data-mg-article','true');
-  article.innerHTML=`<h1>${escapeHtml(draft.title)}</h1>${clean}`;
+  article.innerHTML=`${options.includeTitle===false?'':`<h1>${escapeHtml(draft.title)}</h1>`}${clean}`;
   const warnings:string[]=[];
   for(const el of article.querySelectorAll('*')){const role=el.tagName.toLowerCase();if(roles[role])el.setAttribute('style',styleText(roles[role]));}
   article.querySelectorAll('pre code').forEach(el=>{el.setAttribute('style','font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:0.88em;white-space:pre-wrap;background:transparent;padding:0');});
@@ -98,7 +98,7 @@ export function renderDraft(draft:Draft,options:RenderOptions,assets:Record<stri
   plain.querySelectorAll('tr').forEach(el=>el.append(document.createTextNode('\n')));
   plain.querySelectorAll('td,th').forEach(el=>el.append(document.createTextNode(' | ')));
   const plainText=(plain.textContent||'').replace(/\n[ \t]+/g,'\n').replace(/\n{3,}/g,'\n\n').trim();
-  return {html:article.outerHTML,plainText,markdown:`# ${draft.title}\n\n${normalizeWikiLinks(draft.markdown)}`,warnings:[...new Set(warnings)]};
+  return {html:article.outerHTML,plainText,markdown:`${options.includeTitle===false?'':`# ${draft.title}\n\n`}${normalizeWikiLinks(draft.markdown)}`,warnings:[...new Set(warnings)]};
 }
 export const weightedLength=(text:string):number=>twitter.parseTweet(text).weightedLength;
 const graphemes=(text:string):string[]=>Array.from(new Intl.Segmenter(undefined,{granularity:'grapheme'}).segment(text),s=>s.segment);

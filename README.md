@@ -4,7 +4,7 @@ English | [简体中文](README.zh-CN.md)
 
 Format Obsidian notes for WeChat Official Accounts, Zhihu, Xiaohongshu and X. Choose one of six built-in templates, adjust typography and colors, or learn reusable styles from an article URL. The interface is currently in Simplified Chinese.
 
-Desktop only. Version 0.1.0. Requires Obsidian 1.8.7 or later; native validation was performed on 1.13.7. Formatting preserves your source text and runs locally. No AI account, API key or automatic publishing is required.
+Desktop only. Version 0.1.1. Requires Obsidian 1.8.7 or later; native validation was performed on 1.13.7. Formatting preserves your source text and runs locally. No AI account, API key or automatic publishing is required.
 
 ## Features
 
@@ -21,7 +21,7 @@ Images are loaded automatically from Vault attachments and public HTTP(S) URLs w
 
 ## Installation
 
-1. Download `content-studio-0.1.0.zip` from [Releases](https://github.com/AI-Scarlett/obsidian-content-studio/releases/latest).
+1. Download `content-studio-0.1.1.zip` from [Releases](https://github.com/AI-Scarlett/obsidian-content-studio/releases/latest).
 2. Extract the `content-studio` folder into your Vault's `.obsidian/plugins/` directory. Alternatively, place the release's `main.js`, `manifest.json` and `styles.css` there.
 3. Enable **Mogao Content Studio** in Settings → Community plugins.
 4. Open a note and use the newspaper ribbon icon, the **排版当前笔记** command (format current note), or **用墨稿排版** in the note's context menu.
@@ -33,7 +33,7 @@ For updates, replace only `main.js`, `manifest.json` and `styles.css`; keep `dat
 1. Select a note with **选择笔记**, read the active note with **读取当前笔记**, or paste Markdown in the studio.
 2. Choose a platform and template. Adjust the title, text, font size or color. Studio edits do not overwrite the source note.
 3. Wait for the image counter. Use **重新载入图片** to retry failures.
-4. Choose **复制排版** for rich text or **保存内容包** to export. Xiaohongshu caption and X thread copying contain text only; export the package for their images.
+4. Use **复制标题** to copy the title only, and **复制正文** to copy the body without the generated article title. Body copying preserves images and formatting. Use **保存内容包** to export the complete article, including its title. Xiaohongshu caption and X thread copying contain text only; export the package for their images.
 5. Paste or upload in the destination editor, verify its result, and publish manually.
 
 Each export creates a new folder under `墨稿导出/` by default, configurable in plugin settings. Packages include `article.html`, `article.md`, `caption.txt`, `template.json`, `manifest.json`, and numbered image files. Markdown references are rewritten to the image files. HTML embeds the image bytes. Xiaohongshu exports additional PNG cards; X exports separate thread text files.
