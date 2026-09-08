@@ -1,4 +1,5 @@
 import {
+  FileSystemAdapter,
   Plugin,
   ItemView,
   MarkdownView,
@@ -12,6 +13,7 @@ import {
   type App,
   type SettingDefinitionItem,
 } from "obsidian";
+import { shell } from "electron";
 import { Studio, type Host, type OutputFile } from "./ui/studio";
 import {
   DEFAULT_SETTINGS,
@@ -302,6 +304,12 @@ export default class ContentStudioPlugin extends Plugin {
         else await navigator.clipboard.writeText(text);
       },
       saveFiles: (files, title) => this.writePackage(files, title),
+      revealPath: async (path) => {
+        const adapter = this.app.vault.adapter;
+        if (!(adapter instanceof FileSystemAdapter))
+          throw new Error("请在 Vault 的导出目录查看文件。");
+        shell.showItemInFolder(adapter.getFullPath(safeFolder(path)));
+      },
     };
   }
   private async mkdir(path: string) {
@@ -330,7 +338,9 @@ export default class ContentStudioPlugin extends Plugin {
     await this.mkdir(directory);
     for (const file of files) {
       if (
-        !/^[a-z\d-]+\.(html|md|txt|png|jpg|gif|webp|avif|json)$/.test(file.name)
+        !/^[a-z\d-]+\.(html|md|txt|png|jpg|gif|webp|avif|json|docx)$/.test(
+          file.name,
+        )
       )
         throw new Error("导出文件名不合法。");
       const path = `${directory}/${file.name}`;

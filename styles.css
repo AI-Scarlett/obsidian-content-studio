@@ -31,9 +31,6 @@
 .mg * {
   box-sizing: border-box;
 }
-.mg.mg [hidden] {
-  display: none;
-}
 .mg button,
 .mg input,
 .mg textarea,
@@ -860,219 +857,6 @@
 .mg-settings-scroll > .mg-divider:last-child {
   display: none;
 }
-/* Fit the workspace to its Obsidian pane, independent of window width. */
-.mg-view {
-  container: mg-vault / inline-size;
-  min-width: 0;
-  min-height: 0;
-}
-.mg-view > .mg {
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-  min-height: 0;
-}
-.mg .mg-template {
-  display: block;
-}
-.mg-top,
-.mg-platforms,
-.mg-status {
-  flex-shrink: 0;
-}
-.mg-top,
-.mg-platforms,
-.mg-workspace,
-.mg-library,
-.mg-settings,
-.mg-settings-scroll,
-.mg-output-area {
-  min-width: 0;
-}
-.mg-canvas-toolbar > div:first-child {
-  min-width: 0;
-}
-.mg .mg-source {
-  max-width: 100%;
-}
-.mg-preview-modes {
-  flex-shrink: 0;
-}
-.mg-workspace {
-  grid-template-columns: 190px minmax(0, 1fr) 260px;
-}
-.mg-library {
-  padding: 20px 14px;
-}
-.mg-settings {
-  padding: 20px 18px 14px;
-}
-@container mg-vault (max-width:1000px) {
-  .mg .mg-top {
-    padding: 16px 20px;
-    gap: 12px;
-    flex-wrap: wrap;
-  }
-  .mg-platforms {
-    padding: 10px 18px;
-    flex-wrap: wrap;
-    gap: 4px;
-  }
-  .mg-platforms > button {
-    padding: 7px 10px;
-  }
-  .mg-platforms small,
-  .mg-local {
-    display: none;
-  }
-  .mg-workspace {
-    grid-template-columns: minmax(0, 1fr) 240px;
-    grid-template-rows: auto minmax(0, 1fr);
-  }
-  .mg-library {
-    grid-column: 1/-1;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 152px;
-    gap: 4px 14px;
-    padding: 10px 16px;
-    border-right: 0;
-    border-bottom: 1px solid var(--mg-line);
-  }
-  .mg-library .mg-section-title {
-    grid-column: 1/-1;
-    margin: 0;
-  }
-  .mg-template-list {
-    flex-direction: row;
-    min-height: 0;
-    gap: 8px;
-    padding: 4px 2px 8px;
-  }
-  .mg .mg-template {
-    width: 110px;
-    padding: 6px;
-  }
-  .mg-template-thumb {
-    height: 43px;
-    padding: 6px 8px;
-  }
-  .mg-sample-type {
-    font-size: 7px;
-    margin-bottom: 4px;
-  }
-  .mg-template-thumb i {
-    margin: 3px 0;
-  }
-  .mg-template-label {
-    margin-top: 5px;
-  }
-  .mg-template > p,
-  .mg-template-thumb em {
-    display: none;
-  }
-  .mg-library-bottom {
-    border: 0;
-    margin: 0;
-    padding: 4px 0;
-    align-self: center;
-  }
-  .mg-library-bottom p {
-    display: none;
-  }
-  .mg-canvas-toolbar {
-    padding: 14px 16px;
-    flex-wrap: wrap;
-  }
-  .mg .mg-source {
-    max-width: 100%;
-  }
-  .mg-preview-scroll {
-    padding: 4px 14px 20px;
-  }
-  .mg-settings {
-    padding: 16px 14px 12px;
-  }
-  .mg-settings-scroll {
-    min-height: 0;
-  }
-  .mg-output-area {
-    padding-top: 10px;
-  }
-  .mg-output-area .mg-warnings {
-    max-height: 56px;
-  }
-  .mg-card-frame {
-    width: 288px;
-    height: 384px;
-  }
-  .mg-card-frame > .mg-card {
-    transform: scale(0.4);
-  }
-}
-@container mg-vault (max-width:620px) {
-  .mg {
-    overflow: auto;
-  }
-  .mg-brand h1 span {
-    display: none;
-  }
-  .mg .mg-top {
-    padding: 14px;
-  }
-  .mg-note-actions {
-    gap: 6px;
-    flex-wrap: wrap;
-  }
-  .mg-note-actions .mg-button {
-    padding: 8px;
-    font-size: 11px;
-  }
-  .mg-platforms {
-    padding: 8px 10px;
-  }
-  .mg-workspace {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto 420px auto;
-    flex: none;
-    overflow: visible;
-  }
-  .mg-library {
-    grid-template-columns: minmax(0, 1fr);
-    padding: 10px;
-  }
-  .mg-library-bottom {
-    display: flex;
-    gap: 12px;
-    align-items: center;
-    justify-content: space-between;
-  }
-  .mg-library-bottom .mg-learn {
-    width: auto;
-    padding: 7px 14px;
-  }
-  .mg-library-bottom > .mg-text-button {
-    margin: 0;
-    white-space: nowrap;
-  }
-  .mg-settings {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    border-left: 0;
-    border-top: 1px solid var(--mg-line);
-    overflow: visible;
-    padding: 16px;
-  }
-  .mg-settings-scroll {
-    overflow: visible;
-  }
-  .mg-output-area {
-    margin-top: 16px;
-  }
-  .mg-modal-overlay {
-    position: fixed;
-  }
-}
-
 .mg .mg-image-status {
   font-size: 11px;
   line-height: 1.6;
@@ -1165,4 +949,357 @@
   max-height: 620px;
   object-fit: contain;
   max-width: 100%;
+}
+
+/* A full writing surface; tools occupy a drawer only while requested. */
+.mg-view {
+  container: mg-vault / inline-size;
+  min-width: 0;
+  min-height: 0;
+}
+.mg-view > .mg[data-view] {
+  width: 100%;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+.mg[data-view] .mg-top {
+  padding: 12px 20px;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.mg[data-view] .mg-mark {
+  width: 32px;
+  height: 32px;
+  font-size: 20px;
+}
+.mg[data-view] .mg-brand h1 {
+  font-size: 17px;
+}
+.mg[data-view] .mg-platforms {
+  padding: 6px 20px;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.mg[data-view] .mg-platforms > button {
+  padding: 7px 12px;
+  font-size: 13px;
+}
+.mg[data-view] .mg-platforms .mg-appearance-button {
+  margin-left: auto;
+  border: 1px solid var(--mg-line);
+  border-radius: 6px;
+}
+.mg[data-view] .mg-workbar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 20px;
+  min-width: 0;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--mg-line);
+}
+.mg[data-view] .mg-view-modes {
+  display: flex;
+  gap: 3px;
+  background: #e8ecdf;
+  padding: 3px;
+  border-radius: 7px;
+  flex-shrink: 0;
+}
+.mg[data-view] .mg-view-modes button {
+  padding: 5px 14px;
+  border-radius: 5px;
+}
+.mg[data-view] .mg-view-modes [aria-pressed="true"] {
+  background: #fff;
+  color: var(--mg-accent);
+  box-shadow: 0 1px 3px #0001;
+}
+.mg[data-view] .mg-source {
+  flex: 1;
+  min-width: 0;
+  max-width: none;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  margin: 0;
+}
+.mg[data-view] .mg-counts {
+  margin: 0;
+  flex-shrink: 0;
+  font-size: 11px;
+}
+.mg[data-view] .mg-workspace {
+  grid-template-rows: minmax(0, 1fr);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  flex: 1;
+  min-height: 180px;
+  min-width: 0;
+  overflow: hidden;
+}
+.mg[data-view="edit"] .mg-canvas,
+.mg[data-view="preview"] .mg-writing {
+  display: none;
+}
+.mg[data-view="split"] .mg-workspace {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+.mg[data-view] .mg-writing {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 24px clamp(20px, 5%, 64px);
+  background: #fffefb;
+}
+.mg[data-view] .mg-title-field {
+  display: block;
+  font-size: 11px;
+  color: var(--mg-muted);
+}
+.mg[data-view] .mg-title-input {
+  display: block;
+  width: 100%;
+  border: 0;
+  border-radius: 0;
+  border-bottom: 1px solid var(--mg-line);
+  box-shadow: none;
+  background: transparent;
+  color: var(--mg-ink);
+  font-size: 23px;
+  font-weight: 600;
+  padding: 8px 0 16px;
+  height: auto;
+}
+.mg[data-view] .mg-body-label {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px 0 8px;
+  color: var(--mg-muted);
+  font-size: 11px;
+}
+.mg[data-view] .mg-body-label span {
+  font-size: 10px;
+}
+.mg[data-view] .mg-markdown-input {
+  width: 100%;
+  flex: 1;
+  min-height: 80px;
+  resize: none;
+  border: 0;
+  box-shadow: none;
+  border-radius: 0;
+  background: transparent;
+  color: var(--mg-ink);
+  padding: 8px 2px;
+  font-size: 16px;
+  line-height: 1.9;
+  font-family: var(--font-monospace, monospace);
+}
+.mg[data-view] .mg-canvas {
+  min-height: 0;
+  border-left: 1px solid var(--mg-line);
+}
+.mg[data-view] .mg-canvas-toolbar {
+  padding: 10px 20px;
+  flex-shrink: 0;
+}
+.mg[data-view] .mg-preview-scroll {
+  padding: 8px 20px 28px;
+}
+.mg[data-view] .mg-preview {
+  min-width: 0;
+}
+.mg[data-view] .mg-output-area {
+  padding: 12px 20px 6px;
+  border-top: 1px solid var(--mg-line);
+  flex-shrink: 0;
+  max-height: 35%;
+  overflow: auto;
+}
+.mg[data-view] .mg-publish-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.mg[data-view] .mg-publish-actions .mg-button {
+  padding: 8px 14px;
+  font-size: 12px;
+}
+.mg[data-view] .mg-platform-hint {
+  margin-top: 8px;
+  color: #6d7767;
+  font-size: 11px;
+  line-height: 1.5;
+}
+.mg[data-view] .mg-output-details {
+  margin-top: 4px;
+}
+.mg[data-view] .mg-output-details summary {
+  cursor: pointer;
+  font-size: 11px;
+  color: #7a8473;
+}
+.mg[data-view] .mg-image-status {
+  display: inline;
+  margin: 0;
+}
+.mg[data-view] .mg-status {
+  padding: 5px 20px;
+  font-size: 10px;
+  flex-shrink: 0;
+  min-height: 24px;
+}
+.mg[data-view] .mg-drawer-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  background: #24312038;
+  display: flex;
+  justify-content: flex-end;
+}
+.mg[data-view] .mg-drawer {
+  width: min(400px, 94%);
+  height: 100%;
+  overflow: auto;
+  background: #fafbf6;
+  box-shadow: -10px 0 36px #0001;
+}
+.mg[data-view] .mg-drawer > header {
+  position: sticky;
+  top: 0;
+  background: #fafbf6;
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--mg-line);
+  z-index: 1;
+}
+.mg[data-view] .mg-drawer h2 {
+  font-size: 14px;
+}
+.mg[data-view] .mg-settings {
+  display: block;
+  padding: 20px;
+  overflow: visible;
+  border: 0;
+}
+.mg[data-view] .mg-library {
+  display: block;
+  padding: 0 20px 24px;
+  border: 0;
+  overflow: visible;
+}
+.mg[data-view] .mg-template-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  overflow: visible;
+  padding: 0;
+}
+.mg[data-view] .mg-template {
+  display: block;
+  min-width: 0;
+  width: 100%;
+}
+.mg[data-view] .mg-template p {
+  font-size: 10px;
+}
+.mg[data-view] .mg-delivery-options {
+  display: grid;
+  gap: 12px;
+}
+.mg[data-view] .mg-delivery-options p {
+  color: #6d7767;
+  font-size: 12px;
+  margin-bottom: 12px;
+}
+.mg[data-view] .mg-delivery-path {
+  overflow-wrap: anywhere;
+  font-family: var(--font-monospace, monospace);
+  font-size: 12px;
+  padding: 12px 0;
+}
+.mg[data-view] .mg-delivery-steps {
+  padding-left: 20px;
+  line-height: 1.9;
+}
+@container mg-vault (max-width:899px) {
+  .mg[data-view] .mg-view-modes [data-view="split"] {
+    display: none;
+  }
+  .mg[data-view="split"] .mg-workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .mg[data-view="split"] .mg-canvas {
+    display: none;
+  }
+}
+@container mg-vault (max-width:620px) {
+  .mg[data-view] .mg-top {
+    padding: 10px 12px;
+  }
+  .mg[data-view] .mg-brand h1 span {
+    display: none;
+  }
+  .mg[data-view] .mg-note-actions {
+    gap: 6px;
+  }
+  .mg[data-view] .mg-note-actions .mg-button {
+    padding: 7px 8px;
+    font-size: 11px;
+  }
+  .mg[data-view] .mg-platforms {
+    padding: 6px 10px;
+    gap: 2px;
+    flex-wrap: wrap;
+  }
+  .mg[data-view] .mg-platforms > button {
+    padding: 6px 8px;
+    font-size: 12px;
+  }
+  .mg[data-view] .mg-workbar {
+    padding: 8px 12px;
+    gap: 10px;
+  }
+  .mg[data-view] .mg-workbar .mg-source {
+    display: none;
+  }
+  .mg[data-view] .mg-workbar .mg-counts {
+    margin-left: auto;
+  }
+  .mg[data-view] .mg-writing {
+    padding: 18px 20px;
+  }
+  .mg[data-view] .mg-title-input {
+    font-size: 20px;
+  }
+  .mg[data-view] .mg-body-label span {
+    font-size: 9px;
+  }
+  .mg[data-view] .mg-output-area {
+    padding: 10px 12px 6px;
+  }
+  .mg[data-view] .mg-preview-scroll {
+    padding: 8px;
+  }
+  .mg[data-view] .mg-publish-actions {
+    gap: 6px;
+  }
+  .mg[data-view] .mg-publish-actions .mg-button {
+    padding: 7px 9px;
+  }
+  .mg[data-view] .mg-card-frame {
+    zoom: 0.8;
+  }
+}
+
+/* Hidden tools must stay collapsed after all workspace layout rules. */
+.mg.mg.mg [hidden] {
+  display: none;
 }

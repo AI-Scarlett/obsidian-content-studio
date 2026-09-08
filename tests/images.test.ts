@@ -280,3 +280,68 @@ test("X thread copying omits the article title from both preview and copied payl
     h.root.remove();
   }
 });
+
+test("workspace gives editing its own surface and keeps draft changes when switching views and tools", async () => {
+  const h = harness();
+  try {
+    await h.studio.openDraft(draft("初稿"));
+    assert.equal(h.root.dataset.view, "edit");
+    assert.equal(
+      h.root.querySelector(".mg-drawer-backdrop")!.hasAttribute("hidden"),
+      true,
+    );
+    assert.ok(h.root.querySelector(".mg-writing > .mg-markdown-input"));
+    const editor =
+      h.root.querySelector<HTMLTextAreaElement>(".mg-markdown-input")!;
+    editor.value = "尚未保存的正文修改";
+    editor.dispatchEvent(new dom.window.Event("input"));
+    h.root.querySelector<HTMLButtonElement>('[data-view="preview"]')!.click();
+    h.root.querySelector<HTMLButtonElement>('[data-view="edit"]')!.click();
+    await click(h, "appearance");
+    await click(h, "close-appearance");
+    assert.equal(editor.value, "尚未保存的正文修改");
+    await click(h, "copy");
+    assert.equal(h.clips.at(-1)!.text, "尚未保存的正文修改");
+  } finally {
+    h.studio.destroy();
+    h.root.remove();
+  }
+});
+test("Xiaohongshu photo delivery saves numbered media plus separate title/body, with no fake image-copy success", async () => {
+  const h = harness();
+  try {
+    await h.studio.openDraft(draft());
+    h.root
+      .querySelector<HTMLButtonElement>('[data-platform="xiaohongshu"]')!
+      .click();
+    await click(h, "copy");
+    assert.equal(h.clips.at(-1)!.html, undefined);
+    assert.match(
+      h.root.querySelector(".mg-status")!.textContent!,
+      /正文已复制/,
+    );
+    await click(h, "publish");
+    h.root
+      .querySelector<HTMLButtonElement>('[data-delivery="images"]')!
+      .click();
+    while (h.root.getAttribute("aria-busy") === "true")
+      await new Promise((r) => setTimeout(r, 5));
+    const files = h.packages.at(-1)!;
+    assert.deepEqual(
+      files.filter((f) => f.name.startsWith("image-")).map((f) => f.name),
+      ["image-01.png", "image-02.png"],
+    );
+    assert.equal(
+      files.find((f) => f.name === "title.txt")!.content,
+      "图文测试",
+    );
+    assert.doesNotMatch(
+      files.find((f) => f.name === "body.txt")!.content as string,
+      /图文测试/,
+    );
+    assert.ok(h.root.querySelector("[data-reveal]"));
+  } finally {
+    h.studio.destroy();
+    h.root.remove();
+  }
+});

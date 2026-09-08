@@ -104,7 +104,10 @@ export async function createCards(
     if (!article) throw new Error("没有可导出的正文。");
     async function settle(el: HTMLElement) {
       await Promise.all(
-        Array.from(el.querySelectorAll("img")).map((img) =>
+        [
+          ...(el.tagName === "IMG" ? [el as HTMLImageElement] : []),
+          ...Array.from(el.querySelectorAll("img")),
+        ].map((img) =>
           img.decode().catch(() => {
             throw new Error("有图片无法解码，请重新读取笔记或移除该图片。");
           }),

@@ -2,13 +2,13 @@
 
 仓库：<https://github.com/AI-Scarlett/obsidian-content-studio>
 
-Release：<https://github.com/AI-Scarlett/obsidian-content-studio/releases/tag/0.1.2>
+Release：<https://github.com/AI-Scarlett/obsidian-content-studio/releases/tag/0.1.3>
 
 | 字段 | 内容 |
 | --- | --- |
 | Plugin ID | `content-studio` |
 | Name | `Mogao Content Studio` |
-| Version / tag | `0.1.2`（不加 `v`） |
+| Version / tag | `0.1.3`（不加 `v`） |
 | Author | `AI-Scarlett` |
 | Minimum Obsidian | `1.8.7` |
 | Desktop only | `true` |
@@ -37,4 +37,4 @@ Release：<https://github.com/AI-Scarlett/obsidian-content-studio/releases/tag/0
 
 ## 更新已提交的版本
 
-0.1.2 修复源码和 CSS 检查，发布流程提供来源证明。请在现有插件条目中重新运行检查，确保读取到默认分支和 `0.1.2` Release。Vault Enumeration 和 Clipboard Access 是保留功能的行为说明，具体范围见 [审核说明](review-response.md)。
+0.1.3 修复源码和 CSS 检查，发布流程提供来源证明。请在现有插件条目中重新运行检查，确保读取到默认分支和 `0.1.3` Release。Vault Enumeration 和 Clipboard Access 是保留功能的行为说明，具体范围见 [审核说明](review-response.md)。

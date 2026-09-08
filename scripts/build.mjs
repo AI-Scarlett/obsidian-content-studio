@@ -12,6 +12,7 @@ await build({
   outfile: "main.js",
   external: [
     "obsidian",
+    "electron",
     ...builtinModules,
     ...builtinModules.map((n) => `node:${n}`),
   ],

@@ -99,3 +99,22 @@ test("fake-IP DNS fallback uses the Obsidian requestUrl boundary without note co
     setRequestHandler(undefined);
   }
 });
+
+test("collapsed appearance drawer remains hidden with the new workspace selectors", () => {
+  const styles = document.createElement("style");
+  styles.textContent = readFileSync("styles.css", "utf8");
+  document.head.append(styles);
+  const root = document.createElement("div");
+  root.className = "mg";
+  root.dataset.view = "edit";
+  const drawer = root.appendChild(document.createElement("div"));
+  drawer.className = "mg-drawer-backdrop";
+  drawer.hidden = true;
+  document.body.append(root);
+  try {
+    assert.equal(dom.window.getComputedStyle(drawer).display, "none");
+  } finally {
+    root.remove();
+    styles.remove();
+  }
+});
