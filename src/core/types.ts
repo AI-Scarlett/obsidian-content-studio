@@ -51,6 +51,7 @@ export interface RenderOptions {
   accent: string;
   footnotes: boolean;
   includeTitle?: boolean;
+  forCards?: boolean;
 }
 export interface Rendered {
   html: string;
@@ -79,17 +80,17 @@ export const PLATFORMS: Record<
   wechat: {
     name: "公众号",
     label: "WECHAT",
-    hint: "标题、图文正文分开复制；图片被过滤时可逐张复制，或导入 Word 图文。",
+    hint: "整篇带图导入可使用浏览器导入包与配套扩展预览版；标题仍可单独复制。",
   },
   zhihu: {
     name: "知乎",
     label: "ZHIHU",
-    hint: "标题与富文本正文分别复制，也可保存 Markdown。",
+    hint: "标题与正文分开；浏览器导入包面向知乎专栏长文编辑器。",
   },
   xiaohongshu: {
     name: "小红书",
     label: "REDNOTE",
-    hint: "长文可复制图文正文；普通图文请在图片区粘贴原图，或复制排版卡片。",
+    hint: "浏览器导入包面向小红书长文；普通图文仍可导出排版卡片。",
   },
   x: {
     name: "X",

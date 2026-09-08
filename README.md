@@ -97,3 +97,7 @@ Source: `src/main.ts` (Obsidian host), `src/ui/studio.ts` (workbench), `src/core
 ## License
 
 MIT © 2026 AI-Scarlett. See [LICENSE](LICENSE) and [third-party notices](THIRD_PARTY_NOTICES.md).
+
+## Browser article importer (preview)
+
+A companion Chrome / Edge extension imports a complete article through the destination editor’s paste handlers, submits image files in their original positions, and fills the title separately. This source adds a dedicated article package; installed 0.1.4 can use its existing article.html export. **Platform upload and persisted draft acceptance remain unverified; start with an empty test draft.** See [installation, implementation and limits](browser-extension/README.md). Run `npm run verify:extension` to build the unpacked extension and ZIP.

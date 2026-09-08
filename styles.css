@@ -1335,6 +1335,37 @@
   font-size: 12px;
   overflow-wrap: anywhere;
 }
+.mg[data-view] .mg-image-strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 20px 10px;
+  flex-shrink: 0;
+  overflow-x: auto;
+}
+.mg[data-view] .mg-image-strip-label {
+  font-size: 11px;
+  color: var(--mg-muted);
+  white-space: nowrap;
+}
+.mg[data-view] .mg-image-thumb {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+  padding: 4px;
+  border: 1px solid var(--mg-line);
+  border-radius: 5px;
+  background: #fff;
+  color: var(--mg-ink);
+  font-size: 11px;
+}
+.mg[data-view] .mg-image-thumb img {
+  width: 42px;
+  height: 42px;
+  object-fit: contain;
+  display: block;
+}
 .mg.mg.mg [hidden] {
   display: none;
 }

@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>墨稿 · 整篇图文导入</title><link rel="stylesheet" href="importer.css"></head>
+<body><main>
+<header><span class="mark">墨</span><div><h1>整篇图文导入</h1><p>Content Studio · 浏览器扩展预览版</p></div></header>
+<p class="intro">选取墨稿内容包，一次导入正文与配图。扩展会让编辑器上传图片，并检查图片是否留在原位置。</p>
+<div class="notice">平台兼容性测试中。首次请用新建的空白长文草稿测试；导入后确认自动保存，再预览检查。</div>
+<section><h2>1. 检查当前长文编辑器</h2><p id="target">正在检查…</p><button id="check" class="secondary">重新检查</button></section>
+<section><h2>2. 选择整篇内容包</h2><label class="file-label" for="file">选择 article-mogao.json 或 article.html</label><input id="file" type="file" accept=".json,.html,text/html,application/json"><p class="help">墨稿新版：点“浏览器导入包”。现有 0.1.4：点“完整内容包”，选择导出目录中的 article.html。</p><p id="article">尚未选择文件</p></section>
+<section class="actions"><button id="import" disabled>导入整篇图文</button><button id="cancel" class="secondary" disabled>停止导入</button></section>
+<p id="status" role="status" aria-live="polite">只在你点击导入后，把选定文章交给当前平台。不会点击发表。</p>
+<details><summary>支持范围与数据使用</summary><p>面向公众号、小红书长文、知乎专栏。小红书普通图文的图片区不在此范围。平台可能重新设置字体和装饰，无法保证像素一致。</p><p>仅通过当前编辑器的粘贴上传流程提交图片，不读取 Cookie 或密码，不配置代理上传服务。没有剪贴板、全站或后台浏览权限。导入内容仅保留在此窗口内存中。</p><p>未接收正文、上传超时或图片顺序不一致时会停止，保留已导入部分。重新尝试请使用另一篇空白草稿，避免重复导入。</p></details>
+</main><script type="module" src="importer.js"></script></body></html>

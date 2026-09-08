@@ -60,10 +60,7 @@ export function renderDraft(
 ): Rendered {
   const t = options.template,
     accent = safeColor(options.accent) || t.palette.accent;
-  const size =
-    options.platform === "xiaohongshu"
-      ? options.fontSize * 1.75
-      : options.fontSize;
+  const size = options.forCards ? options.fontSize * 1.75 : options.fontSize;
   const ink = t.palette.ink,
     muted = t.palette.muted;
   const font =

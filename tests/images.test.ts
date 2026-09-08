@@ -285,7 +285,8 @@ test("workspace gives editing its own surface and keeps draft changes when switc
   const h = harness();
   try {
     await h.studio.openDraft(draft("初稿"));
-    assert.equal(h.root.dataset.view, "edit");
+    assert.equal(h.root.dataset.view, "preview");
+    h.root.querySelector<HTMLButtonElement>('[data-view="edit"]')!.click();
     assert.equal(
       h.root.querySelector(".mg-drawer-backdrop")!.hasAttribute("hidden"),
       true,
@@ -348,6 +349,45 @@ test("Xiaohongshu photo delivery saves numbered media plus separate title/body, 
       /图文测试/,
     );
     assert.ok(h.root.querySelector("[data-reveal]"));
+  } finally {
+    h.studio.destroy();
+    h.root.remove();
+  }
+});
+
+test("browser article package embeds all images, separates title and excludes Vault paths", async () => {
+  const h = harness();
+  try {
+    await h.studio.openDraft(draft());
+    await click(h, "browser-import");
+    const file = h.packages[0].find(
+      (file) => file.name === "article-mogao.json",
+    )!;
+    const article = JSON.parse(String(file.content));
+    assert.equal(article.format, "mogao-article");
+    assert.equal(article.title, "图文测试");
+    assert.equal(article.platform, "wechat");
+    assert.ok(!article.html.includes("<h1"));
+    assert.equal(
+      (article.html.match(/data:image\/png;base64/g) || []).length,
+      2,
+    );
+    assert.ok(!String(file.content).includes("Notes/test.md"));
+  } finally {
+    h.studio.destroy();
+    h.root.remove();
+  }
+});
+
+test("browser export stops if a note image cannot be loaded", async () => {
+  const h = harness(async () => {
+    throw new Error("missing");
+  });
+  try {
+    await h.studio.openDraft(draft());
+    await click(h, "browser-import");
+    assert.equal(h.packages.length, 0);
+    assert.match(h.root.querySelector(".mg-status")!.textContent!, /图片/);
   } finally {
     h.studio.destroy();
     h.root.remove();

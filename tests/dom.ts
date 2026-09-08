@@ -41,6 +41,9 @@ export function installDomGlobals(dom: JSDOM) {
     createDiv(this: Node, options: any = {}, callback?: Function) {
       return (this as any).createEl("div", options, callback);
     },
+    createSpan(this: Node, options: any = {}, callback?: Function) {
+      return (this as any).createEl("span", options, callback);
+    },
     empty(this: HTMLElement) {
       this.replaceChildren();
     },

@@ -92,6 +92,12 @@ export class Studio {
   private q<T extends HTMLElement = HTMLElement>(selector: string): T {
     return this.root.querySelector<T>(selector)!;
   }
+  private setView(mode: string) {
+    this.root.dataset.view = mode;
+    this.root.querySelectorAll<HTMLElement>("[data-view]").forEach((button) => {
+      button.setAttribute("aria-pressed", String(button.dataset.view === mode));
+    });
+  }
   private tell(message: string, error = false) {
     if (this.destroyed) return;
     this.status.textContent = message;
@@ -150,8 +156,8 @@ export class Studio {
         )}<button data-action="appearance" class="mg-appearance-button" aria-expanded="false">模板与样式</button></nav>
       <div class="mg-workbar"><div class="mg-view-modes" aria-label="工作区模式"><button data-view="edit">编辑</button><button data-view="preview">预览</button><button data-view="split">对照</button></div><span class="mg-source">选择一篇笔记开始</span><span class="mg-counts"></span></div>
       <main class="mg-workspace"><section class="mg-writing" aria-label="编辑排版稿"><label class="mg-title-field">标题<input class="mg-title-input" placeholder="文章标题" maxlength="300"></label><label class="mg-body-label" for="mg-body-${crypto.randomUUID()}">正文 <span>Markdown · 仅编辑排版稿，不改原笔记</span></label><textarea class="mg-markdown-input" aria-label="正文 Markdown" spellcheck="false" placeholder="读取笔记，或在这里粘贴 Markdown 开始写作…"></textarea></section>
-      <section class="mg-canvas" aria-label="图文预览"><div class="mg-canvas-toolbar"><span>图文预览</span><div class="mg-preview-modes"><button data-mode="article">排版</button><button data-mode="thread">串文</button><button data-mode="cards">卡片</button></div></div><div class="mg-preview-scroll"><div class="mg-preview"></div></div></section></main>
-      <section class="mg-output-area"><div class="mg-publish-actions"><button data-action="copy-title" class="mg-button">复制标题</button><button data-action="copy" class="mg-button">复制正文</button><button data-action="copy-images" class="mg-button">复制图片</button><button data-action="publish" class="mg-button mg-primary">导出 Word 图文</button><button data-action="export" class="mg-text-button">完整内容包</button></div><p class="mg-platform-hint"></p><details class="mg-output-details"><summary><span class="mg-image-status"></span></summary><div class="mg-warnings" aria-live="polite"></div><button data-action="images" class="mg-text-button">重新载入图片</button></details></section>
+      <section class="mg-canvas" aria-label="图文预览"><div class="mg-canvas-toolbar"><span>图文预览</span><div class="mg-preview-modes"><button data-mode="article">排版</button><button data-mode="thread">串文</button><button data-mode="cards">卡片</button></div></div><div class="mg-image-strip" aria-label="笔记图片" hidden></div><div class="mg-preview-scroll"><div class="mg-preview"></div></div></section></main>
+      <section class="mg-output-area"><div class="mg-publish-actions"><button data-action="copy-title" class="mg-button">复制标题</button><button data-action="copy" class="mg-button">复制正文</button><button data-action="browser-import" class="mg-button mg-primary">浏览器导入包</button><button data-action="export" class="mg-text-button">完整内容包</button></div><p class="mg-platform-hint"></p><details class="mg-output-details"><summary><span class="mg-image-status"></span></summary><div class="mg-warnings" aria-live="polite"></div><button data-action="images" class="mg-text-button">重新载入图片</button><button data-action="publish" class="mg-text-button">导出 Word 图文</button><button data-action="copy-images" class="mg-text-button">单独复制图片</button></details></section>
       <div class="mg-drawer-backdrop" hidden><aside class="mg-drawer" aria-label="模板与样式"><header><h2>模板与样式</h2><button data-action="close-appearance" class="mg-button">完成</button></header><section class="mg-settings"><div class="mg-section-title"><h2>微调样式</h2><button data-action="reset" class="mg-text-button">重置</button></div><label class="mg-field">正文字号 <span class="mg-font-value"></span><input class="mg-font-input" type="range" min="12" max="24" step="1" value="16"></label><label class="mg-color-field">主题颜色<input class="mg-color-input" type="color" value="#3d6254"></label><label class="mg-check"><input class="mg-footnotes" type="checkbox"> 公众号文末保留链接</label><div class="mg-template-controls"><button data-action="save-template" class="mg-text-button">存为新模板</button><button data-action="export-template" class="mg-text-button">导出模板</button><button data-action="delete-template" class="mg-text-button mg-danger">删除</button></div><div class="mg-template-source"></div></section><section class="mg-library"><div class="mg-section-title"><h2>模板库</h2><span class="mg-template-count"></span></div><div class="mg-template-list"></div><div class="mg-library-bottom"><button data-action="learn" class="mg-button mg-learn">＋ 链接学模板</button><button data-action="import" class="mg-text-button">导入模板 JSON</button><input type="file" class="mg-file-input" accept="application/json,.json" hidden></div></section></aside></div>
       <footer class="mg-status" role="status" aria-live="polite">编辑、预览随时切换；宽窗口可左右对照。</footer>`,
     );
@@ -187,30 +193,19 @@ export class Studio {
         e.stopPropagation();
       }
     });
-    const setView = (mode: string) => {
-      this.root.dataset.view = mode;
-      this.root
-        .querySelectorAll<HTMLElement>("[data-view]")
-        .forEach((button) => {
-          button.setAttribute(
-            "aria-pressed",
-            String(button.dataset.view === mode),
-          );
-        });
-    };
     this.root.querySelectorAll<HTMLElement>("[data-view]").forEach((button) => {
       button.addEventListener("click", () =>
-        setView(button.dataset.view || "edit"),
+        this.setView(button.dataset.view || "edit"),
       );
     });
-    setView("edit");
+    this.setView("edit");
     if (typeof ResizeObserver !== "undefined") {
       this.resizeObserver = new ResizeObserver((entries) => {
         if (
           entries[0].contentRect.width < 900 &&
           this.root.dataset.view === "split"
         )
-          setView("edit");
+          this.setView("preview");
       });
       this.resizeObserver.observe(this.root);
     }
@@ -315,6 +310,10 @@ export class Studio {
       () => void this.run("准备图片…", () => this.imageDialog()),
     );
     bind("export", () => void this.run("正在生成内容包…", () => this.export()));
+    bind(
+      "browser-import",
+      () => void this.run("正在打包整篇图文…", () => this.browserPackage()),
+    );
     this.root
       .querySelectorAll<HTMLElement>("[data-platform]")
       .forEach((button) =>
@@ -322,6 +321,7 @@ export class Studio {
           if (this.busy) return;
           this.settings.platform = button.dataset.platform as Platform;
           this.previewMode = "article";
+          if (this.draft.markdown.trim()) this.setView("preview");
           this.commitPreferences();
           this.render();
         }),
@@ -402,6 +402,8 @@ export class Studio {
     this.assetWarnings = [];
     this.q<HTMLInputElement>(".mg-title-input").value = draft.title;
     this.q<HTMLTextAreaElement>(".mg-markdown-input").value = draft.markdown;
+    this.previewMode = "article";
+    this.setView(draft.markdown.trim() ? "preview" : "edit");
     this.render();
     await this.refreshImages();
     if (this.destroyed) return;
@@ -526,6 +528,7 @@ export class Studio {
       );
     this.q(".mg-source").textContent = this.draft.sourcePath || "临时排版稿";
     this.q(".mg-image-status").textContent = this.imageSummary();
+    this.paintImageStrip();
     this.q<HTMLInputElement>(".mg-font-input").value = String(this.fontSize);
     this.q(".mg-font-value").textContent = `${this.fontSize} px`;
     if (/^#[\da-f]{6}$/i.test(this.accent))
@@ -638,12 +641,65 @@ export class Studio {
       });
     }
   }
+  private paintImageStrip() {
+    const strip = this.q(".mg-image-strip");
+    const sources = imageSources(this.draft);
+    strip.hidden = !sources.length;
+    strip.replaceChildren();
+    if (!sources.length) return;
+    strip.createSpan({
+      cls: "mg-image-strip-label",
+      text: `笔记图片 ${sources.length}`,
+    });
+    sources.forEach((source, index) => {
+      const button = strip.createEl("button", { cls: "mg-image-thumb" });
+      button.type = "button";
+      button.setAttribute("aria-label", `查看正文第 ${index + 1} 张图片`);
+      const embedded = this.assets[source];
+      if (isEmbeddedImage(embedded)) {
+        button.createEl("img", {
+          attr: { src: embedded, alt: `图片 ${index + 1}` },
+        });
+        button.createSpan({ text: String(index + 1) });
+      } else {
+        button.textContent = `${index + 1} · 待载入`;
+        button.disabled = true;
+      }
+      button.addEventListener("click", () => {
+        if (this.busy) return;
+        this.previewMode = "article";
+        this.setView("preview");
+        this.render();
+        const img = Array.from(this.preview.querySelectorAll("img")).find(
+          (image) => image.src === embedded,
+        );
+        if (!img) return;
+        const scroll = this.q(".mg-preview-scroll");
+        scroll.scrollTop +=
+          img.getBoundingClientRect().top -
+          scroll.getBoundingClientRect().top -
+          12;
+        this.tell(`正在查看第 ${index + 1} 张图片，正文顺序保持不变。`);
+      });
+    });
+  }
+  private cardContent() {
+    return renderDraft(
+      this.draft,
+      { ...this.options(), forCards: true },
+      this.assets,
+    );
+  }
   private async paintCards(generation: number) {
     try {
-      const deck = await createCards(this.rendered!.html, this.draft.title, {
-        ...this.template,
-        palette: { ...this.template.palette, accent: this.accent },
-      });
+      const deck = await createCards(
+        this.cardContent().html,
+        this.draft.title,
+        {
+          ...this.template,
+          palette: { ...this.template.palette, accent: this.accent },
+        },
+      );
       if (this.destroyed || generation !== this.cardGeneration) {
         deck.dispose();
         return;
@@ -822,7 +878,7 @@ export class Studio {
     } else if (kind === "cards") {
       const template = tuneTemplate(this.template, this.accent, this.fontSize);
       const deck = await createCards(
-        content.html,
+        this.cardContent().html,
         this.draft.title || "未命名草稿",
         template,
       );
@@ -875,6 +931,32 @@ export class Studio {
         }),
     );
   }
+  private async browserPackage() {
+    if (this.settings.platform === "x")
+      throw new Error("浏览器导入预览版支持公众号、小红书长文和知乎专栏。");
+    await this.completeContent();
+    const content = this.bodyContent();
+    const json = JSON.stringify({
+      format: "mogao-article",
+      version: 1,
+      title: this.draft.title,
+      platform: this.settings.platform,
+      html: content.html,
+    });
+    if (new TextEncoder().encode(json).byteLength > 64 * 1024 * 1024)
+      throw new Error("浏览器内容包超过 64 MB，请拆分文章后导出。");
+    const instructions =
+      "在目标平台打开空白长文草稿，点击“墨稿 · 整篇图文导入”浏览器扩展，选择 article-mogao.json，然后点击“导入整篇图文”。包内包含正文和全部图片文件，扩展会尝试通过平台编辑器上传图片并保留原位置。扩展仍为预览版，首次请使用测试草稿；导入后检查图片及自动保存状态。";
+    const path = await this.host.saveFiles(
+      [
+        { name: "article-mogao.json", content: json },
+        { name: "readme.txt", content: instructions },
+      ],
+      `${this.draft.title || "未命名草稿"}-浏览器导入`,
+    );
+    this.tell(`整篇图文包已保存：${path}`);
+    this.deliveryDialog(path, instructions);
+  }
   private async export() {
     await this.completeContent();
     const content = this.fresh(),
@@ -916,7 +998,11 @@ export class Studio {
         }),
       );
     if (platform === "xiaohongshu") {
-      const deck = await createCards(content.html, draft.title, template);
+      const deck = await createCards(
+        this.cardContent().html,
+        draft.title,
+        template,
+      );
       try {
         cardCount = deck.cards.length;
         for (const [i, card] of deck.cards.entries()) {
