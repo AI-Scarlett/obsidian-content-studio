@@ -5,6 +5,7 @@ import {
   type ServerResponse,
 } from "node:http";
 import { randomBytes } from "node:crypto";
+import { browserLaunchScript } from "./browser-launch-page";
 import {
   setTimeout as scheduleExpiry,
   clearTimeout as cancelExpiry,
@@ -12,6 +13,11 @@ import {
 // Ephemeral ports allow multiple vaults to publish without colliding.
 export const BRIDGE_PORT = 0;
 declare const MOGAO_EXTENSION_ZIP: string;
+declare const MOGAO_EXTENSION_VERSION: string;
+const extensionVersion =
+  typeof MOGAO_EXTENSION_VERSION === "string"
+    ? MOGAO_EXTENSION_VERSION
+    : "0.2.1";
 const extensionArchive =
   typeof MOGAO_EXTENSION_ZIP === "string" ? MOGAO_EXTENSION_ZIP : "";
 export type BridgePlatform = "wechat" | "xiaohongshu" | "zhihu";
@@ -186,8 +192,7 @@ export class BrowserBridge {
       }
       res.writeHead(200, {
         "Content-Type": "application/zip",
-        "Content-Disposition":
-          'attachment; filename="mogao-browser-extension-0.2.0-preview.zip"',
+        "Content-Disposition": `attachment; filename="mogao-browser-extension-${extensionVersion}-preview.zip"`,
         "Cache-Control": "no-store",
       });
       res.end(Buffer.from(extensionArchive, "base64"));
@@ -198,9 +203,7 @@ export class BrowserBridge {
         "Content-Type": "text/javascript",
         "Cache-Control": "no-store",
       });
-      res.end(
-        `let connected=false;window.addEventListener('message',e=>{if(e.source===window&&e.data?.type==='mogao-extension-ready'){connected=true;document.getElementById('state').textContent='扩展已连接，正在打开发布平台…';}});window.setTimeout(()=>{if(!connected)location.replace('/install'+location.pathname);},2500);`,
-      );
+      res.end(browserLaunchScript);
       return;
     }
     const match = url.pathname.match(
@@ -214,20 +217,15 @@ export class BrowserBridge {
       });
       return;
     }
-    if (req.method === "GET" && match[1] === "publish") {
+    if (
+      req.method === "GET" &&
+      (match[1] === "publish" || match[1] === "install/publish")
+    ) {
       this.page(
         res,
-        "墨稿正在发布",
-        `<h1>正在打开${names[job.article.platform]}</h1><p>《${escape(job.article.title)}》</p><p id="state">正在调用墨稿浏览器扩展…</p><small>未登录时，请在平台页面完成登录；登录后会自动继续同步。最后的发表由你确认。</small>`,
+        "墨稿 · 连接发布助手",
+        `<h1>发送到${names[job.article.platform]}</h1><p>《${escape(job.article.title)}》</p><p id="state" role="status" aria-live="polite">正在连接墨稿发布助手…</p><small id="extension-version">配套扩展版本 ${extensionVersion}</small><section id="recovery" hidden><h2>扩展没有连接上</h2><p>工具栏有墨稿图标，说明扩展已添加；图标不代表当前版本已启用并取得此页权限。</p><ol><li>已安装过：在浏览器扩展管理页确认墨稿已启用，点击重新加载，版本应为 ${extensionVersion} 或更新。</li><li>在扩展详情的“网站访问权限”中，允许本机地址 127.0.0.1 和所选发布平台。使用装有墨稿扩展的 Chrome / Edge 用户配置。</li><li>完成后刷新此页，或直接点击工具栏的墨稿图标，接续这篇稿件。</li></ol><p><button id="retry" type="button">重新连接</button> <a href="/publish/${id}">刷新发布页</a></p><details><summary>尚未安装，或需要更新扩展文件</summary><p>当前为开发预览版，尚未上架 Chrome 扩展商店。安装一次，之后在 Obsidian 点发布即可自动接续。</p><p><a href="/extension.zip" download>下载墨稿浏览器扩展 ${extensionVersion}</a>。已有扩展请将新版文件替换到原扩展目录再重新加载；首次安装请解压后在扩展管理页选择“加载已解压的扩展程序”。</p><p><a href="https://github.com/AI-Scarlett/obsidian-content-studio/tree/feat/browser-article-import-preview/browser-extension" target="_blank" rel="noreferrer">查看安装说明</a></p></details></section><p><small>本页保留本次稿件的连接，无需导出或选择文件。未登录时，请在平台页面完成登录；登录后会自动继续同步。最后的发表由你确认。</small></p>`,
         true,
-      );
-      return;
-    }
-    if (req.method === "GET" && match[1] === "install/publish") {
-      this.page(
-        res,
-        "安装墨稿浏览器扩展",
-        `<h1>先安装墨稿浏览器扩展</h1><p>安装一次，之后在 Obsidian 点“发布”即可自动打开平台并同步整篇图文。</p><p>当前为开发预览版，尚未上架 Chrome 扩展商店。</p><p>已安装过：在 Chrome 扩展管理页重新加载墨稿扩展，使新版本生效。</p><p><a href="/extension.zip" download>下载墨稿浏览器扩展</a>，解压后在 Chrome / Edge 扩展管理页开启开发者模式，选择“加载已解压的扩展程序”。</p><p>详细步骤：<a href="https://github.com/AI-Scarlett/obsidian-content-studio/tree/feat/browser-article-import-preview/browser-extension" target="_blank" rel="noreferrer">打开安装说明</a></p><p><a href="/publish/${id}">安装完成，继续发布</a></p>`,
       );
       return;
     }

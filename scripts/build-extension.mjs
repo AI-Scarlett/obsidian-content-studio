@@ -3,6 +3,9 @@ import { mkdir, copyFile, readFile, writeFile } from "node:fs/promises";
 import { zipSync } from "fflate";
 import { sampleArticle } from "./extension-sample.mjs";
 const folder = "dist/mogao-browser-extension";
+const manifest = JSON.parse(
+  await readFile("browser-extension/manifest.json", "utf8"),
+);
 await mkdir(folder, { recursive: true });
 await build({
   entryPoints: [
@@ -44,7 +47,7 @@ const archive = {};
 for (const name of files)
   archive[name] = new Uint8Array(await readFile(`${folder}/${name}`));
 await writeFile(
-  "dist/mogao-browser-extension-0.2.0-preview.zip",
-  zipSync(archive),
+  `dist/mogao-browser-extension-${manifest.version}-preview.zip`,
+  zipSync(archive, { mtime: new Date("1980-01-01T00:00:00Z") }),
 );
 console.log(`Built ${folder} and preview ZIP. No platform acceptance implied.`);

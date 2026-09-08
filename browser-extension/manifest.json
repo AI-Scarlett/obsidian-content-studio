@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "墨稿 · 浏览器发布助手（预览版）",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "从 Obsidian 墨稿点发布，自动打开平台并同步整篇图文。登录后继续，最终发表由你确认。平台兼容性测试中。",
   "minimum_chrome_version": "120",
   "permissions": ["scripting"],
@@ -18,6 +18,10 @@
       "run_at": "document_idle"
     }
   ],
-  "action": { "default_title": "墨稿发布助手" },
-  "background": { "service_worker": "background.js" }
+  "action": {
+    "default_title": "墨稿发布助手"
+  },
+  "background": {
+    "service_worker": "background.js"
+  }
 }

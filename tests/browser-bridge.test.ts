@@ -110,7 +110,7 @@ test("one controller claims delivery; duplicate windows and other extensions can
     f.bridge.stop();
   }
 });
-test("launcher redirects missing extension to install, escapes title and exposes no article body", async () => {
+test("both launch and recovery pages reconnect without claiming a missing extension or exposing article body", async () => {
   const f = await fixture();
   try {
     const page = await (await fetch(f.url)).text();
@@ -120,13 +120,16 @@ test("launcher redirects missing extension to install, escapes title and exposes
     const script = await (
       await fetch(`http://127.0.0.1:${f.port}/launch.js`)
     ).text();
-    assert.match(script, /location.replace\('\/install'/);
+    assert.ok(!script.includes("location.replace"));
     const install = await (
       await fetch(f.url.replace("/publish/", "/install/publish/"))
     ).text();
     assert.match(install, /尚未上架/);
     assert.match(install, /href="\/extension.zip"/);
-    assert.match(install, /安装完成，继续发布/);
+    assert.match(install, /重新连接/);
+    assert.match(install, /\/launch.js/);
+    assert.ok(!install.includes("先安装墨稿"));
+    assert.ok(!install.includes("Only this draft"));
   } finally {
     f.bridge.stop();
   }

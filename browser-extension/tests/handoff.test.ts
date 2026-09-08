@@ -1,7 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { JSDOM } from "jsdom";
-import { handoffUrl, destinations } from "../src/handoff";
+import {
+  handoffUrl,
+  handoffPageUrl,
+  publishUrl,
+  destinations,
+} from "../src/handoff";
 import { prepareDestination } from "../src/navigation";
 const id = "a".repeat(64);
 test("handoff accepts only an exact loopback article capability, including different vault ports", () => {
@@ -16,6 +21,22 @@ test("handoff accepts only an exact loopback article capability, including diffe
     `http://127.0.0.1:39276/v1/jobs/${id}`,
   ])
     assert.equal(handoffUrl(raw), undefined);
+});
+test("recovery URLs resume exactly the same capability while rejecting other localhost paths", () => {
+  const raw = `http://127.0.0.1:52341/install/publish/${id}`;
+  assert.equal(handoffUrl(raw), undefined);
+  assert.equal(
+    publishUrl(handoffPageUrl(raw)!).href,
+    raw.replace("/install", ""),
+  );
+  for (const value of [
+    raw + "?next=evil",
+    raw + "#evil",
+    raw.replace("127.0.0.1", "evil.example"),
+    raw.replace("/install/publish/", "/install/"),
+    raw.replace("/install/publish/", "/v1/jobs/"),
+  ])
+    assert.equal(handoffPageUrl(value), undefined);
 });
 function page(body: string, url: string) {
   const dom = new JSDOM(body, { url });
