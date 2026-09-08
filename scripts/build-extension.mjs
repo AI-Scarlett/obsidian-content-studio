@@ -56,6 +56,8 @@ for (const name of files)
   archive[name] = new Uint8Array(await readFile(`${folder}/${name}`));
 await writeFile(
   `dist/mogao-browser-extension-${manifest.version}-preview.zip`,
-  zipSync(archive, { mtime: new Date("1980-01-01T00:00:00Z") }),
+  // ZIP stores local calendar fields, without a timezone. Use the same wall time
+  // on every builder so the embedded archive and main.js are reproducible.
+  zipSync(archive, { mtime: new Date(1980, 0, 1, 0, 0, 0) }),
 );
 console.log(`Built ${folder} and preview ZIP. No platform acceptance implied.`);
