@@ -315,10 +315,18 @@ test("Xiaohongshu photo delivery saves numbered media plus separate title/body, 
       .querySelector<HTMLButtonElement>('[data-platform="xiaohongshu"]')!
       .click();
     await click(h, "copy");
-    assert.equal(h.clips.at(-1)!.html, undefined);
+    assert.equal((h.clips.at(-1)!.html!.match(/<img /g) || []).length, 2);
+    assert.doesNotMatch(h.clips.at(-1)!.html!, /复制这张图|data-copy-image/);
+    assert.equal(
+      h.root.querySelectorAll(".mg-preview [data-copy-image]").length,
+      2,
+    );
+    await click(h, "copy-images");
+    assert.equal(h.root.querySelectorAll(".mg-copy-gallery img").length, 2);
+    h.root.querySelector<HTMLButtonElement>(".mg-modal header button")!.click();
     assert.match(
       h.root.querySelector(".mg-status")!.textContent!,
-      /正文已复制/,
+      /已准备 2 张图片/,
     );
     await click(h, "publish");
     h.root

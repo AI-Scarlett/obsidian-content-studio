@@ -1,6 +1,6 @@
-# Verification scope for 0.1.3
+# Verification scope for 0.1.4
 
-`npm run verify` runs the official Obsidian ESLint recommended rules with zero warnings, conservative Chrome 120 CSS compatibility checks, TypeScript, 74 offline tests and a production bundle build. `npm run package` validates and packages the three plugin files.
+`npm run verify` runs the official Obsidian ESLint recommended rules with zero warnings, conservative Chrome 120 CSS compatibility checks, TypeScript, 80 offline tests and a production bundle build. `npm run package` validates and packages the three plugin files.
 
 Regression coverage includes rendering and sanitization, templates, network and redirect protections, image cache/order/retry/completeness, title/body copying, separate media delivery, draft retention across workspace modes, collapsed-drawer visibility, native DOCX XML/media relationships, relative font sizes, compiled plugin host behavior, settings, note enumeration and write-only clipboard access.
 
@@ -8,6 +8,10 @@ Browser checks used the current Studio source with an isolated local host and sy
 
 The Word export was created through the actual Studio export action using PNG and WebP source images. The DOCX embeds two native media parts, keeps body text and images in source order, and excludes the generated article title. Its two pages were rendered with the bundled LibreOffice renderer using a task-local fontconfig file for Chinese fonts and visually inspected. XML tests additionally cover repeated images, tables, links, invalid images and dark-template readability on white pages.
 
-These checks do not assert destination acceptance. Browser policy prevented access to the WeChat editor; no platform import/upload or publication was performed. Native Obsidian was observed still running its old workbench. Installed file verification and release provenance do not imply that the running plugin has been reloaded. Preserve/export temporary drafts before reloading.
+The 0.1.4 clipboard changes were checked against the current six-theme Shanhai generator: it writes rich HTML first, falling back to a native selection; its per-image flow converts decoded pixels to PNG. The current Shanhai output uses data URLs, without an upload step.
+
+The actual Studio copy buttons were exercised in an isolated local Chrome page with synthetic PNG/WebP images. Browser automation uses a virtual clipboard bridge: paste events received `text/html` plus `text/plain`, two embedded images in order, no generated title and no copy controls, for both WeChat and Xiaohongshu modes. The per-image action delivered a 45,448-byte PNG file (960 × 400); copying a text-and-image card delivered a 114,095-byte PNG (1080 × 1440), visually inspected. This verifies browser API payloads and local paste handling, not the native macOS pasteboard or destination upload. Native selection fallback, failure cleanup, no silent plain-text downgrade and cursor restoration have offline DOM tests. A 380 px pane retained all copy controls without horizontal overflow.
+
+These checks do not assert destination acceptance. Browser policy prevented access to the WeChat editor; no platform import/upload or publication was performed. Native Obsidian was observed running the 0.1.3 workspace before this update. Installed file verification and release provenance do not imply that the running plugin has been reloaded. Preserve/export temporary drafts before reloading.
 
 Private notes, vault paths, local screenshots and machine logs are excluded from source control. Release assets are restricted to `main.js`, `manifest.json`, `styles.css`, with attestations from the tagged release workflow. Community review remains external.

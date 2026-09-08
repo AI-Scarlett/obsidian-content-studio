@@ -171,7 +171,7 @@ function harness(saved: any = null) {
     console,
     setTimeout,
     clearTimeout,
-    window: { setTimeout, clearTimeout },
+    window: { setTimeout, clearTimeout, navigator, ClipboardItem },
     navigator,
     ClipboardItem,
     Blob,

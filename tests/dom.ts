@@ -67,6 +67,8 @@ export function installDomGlobals(dom: JSDOM) {
     Node: win.Node,
     NodeFilter: win.NodeFilter,
     HTMLElement: win.HTMLElement,
+    HTMLInputElement: win.HTMLInputElement,
+    HTMLTextAreaElement: win.HTMLTextAreaElement,
     createEl: element,
     createDiv: (options?: any) => element("div", options),
     createFragment: () => win.document.createDocumentFragment(),

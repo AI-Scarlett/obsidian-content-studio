@@ -28,6 +28,7 @@ import { learnTemplate, stylesheetLinks } from "./core/learn";
 import { downloadPublic } from "./core/network";
 import { resolveImageAssets } from "./core/images";
 import { errorMessage, isRecord } from "./core/dom";
+import { copyContent } from "./core/clipboard";
 
 const VIEW = "content-studio-view";
 function hasControlCharacters(value: string): boolean {
@@ -293,16 +294,7 @@ export default class ContentStudioPlugin extends Plugin {
           );
         return template;
       },
-      copy: async (text, html) => {
-        if (html)
-          await navigator.clipboard.write([
-            new ClipboardItem({
-              "text/plain": new Blob([text], { type: "text/plain" }),
-              "text/html": new Blob([html], { type: "text/html" }),
-            }),
-          ]);
-        else await navigator.clipboard.writeText(text);
-      },
+      copy: copyContent,
       saveFiles: (files, title) => this.writePackage(files, title),
       revealPath: async (path) => {
         const adapter = this.app.vault.adapter;

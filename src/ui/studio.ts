@@ -9,6 +9,7 @@ import { createCards, cardPng, type CardDeck } from "../core/cards";
 import { learnTemplate } from "../core/learn";
 import { portableMarkdown } from "../core/export";
 import { wordDocument } from "../core/word";
+import { copyPng, imagePng } from "../core/clipboard";
 import {
   isEmbeddedImage,
   type ImageOptions,
@@ -47,7 +48,7 @@ export interface Host {
     options?: ImageOptions,
   ): Promise<ImageResult>;
   learnUrl(url: string): Promise<Template>;
-  copy(text: string, html?: string): Promise<void>;
+  copy(text: string, html?: string, context?: HTMLElement): Promise<void>;
   saveFiles(files: OutputFile[], title: string): Promise<string>;
   revealPath?(path: string): Promise<void>;
 }
@@ -150,7 +151,7 @@ export class Studio {
       <div class="mg-workbar"><div class="mg-view-modes" aria-label="工作区模式"><button data-view="edit">编辑</button><button data-view="preview">预览</button><button data-view="split">对照</button></div><span class="mg-source">选择一篇笔记开始</span><span class="mg-counts"></span></div>
       <main class="mg-workspace"><section class="mg-writing" aria-label="编辑排版稿"><label class="mg-title-field">标题<input class="mg-title-input" placeholder="文章标题" maxlength="300"></label><label class="mg-body-label" for="mg-body-${crypto.randomUUID()}">正文 <span>Markdown · 仅编辑排版稿，不改原笔记</span></label><textarea class="mg-markdown-input" aria-label="正文 Markdown" spellcheck="false" placeholder="读取笔记，或在这里粘贴 Markdown 开始写作…"></textarea></section>
       <section class="mg-canvas" aria-label="图文预览"><div class="mg-canvas-toolbar"><span>图文预览</span><div class="mg-preview-modes"><button data-mode="article">排版</button><button data-mode="thread">串文</button><button data-mode="cards">卡片</button></div></div><div class="mg-preview-scroll"><div class="mg-preview"></div></div></section></main>
-      <section class="mg-output-area"><div class="mg-publish-actions"><button data-action="copy-title" class="mg-button">复制标题</button><button data-action="copy" class="mg-button">复制正文</button><button data-action="publish" class="mg-button mg-primary">导出 Word 图文</button><button data-action="export" class="mg-text-button">完整内容包</button></div><p class="mg-platform-hint"></p><details class="mg-output-details"><summary><span class="mg-image-status"></span></summary><div class="mg-warnings" aria-live="polite"></div><button data-action="images" class="mg-text-button">重新载入图片</button></details></section>
+      <section class="mg-output-area"><div class="mg-publish-actions"><button data-action="copy-title" class="mg-button">复制标题</button><button data-action="copy" class="mg-button">复制正文</button><button data-action="copy-images" class="mg-button">复制图片</button><button data-action="publish" class="mg-button mg-primary">导出 Word 图文</button><button data-action="export" class="mg-text-button">完整内容包</button></div><p class="mg-platform-hint"></p><details class="mg-output-details"><summary><span class="mg-image-status"></span></summary><div class="mg-warnings" aria-live="polite"></div><button data-action="images" class="mg-text-button">重新载入图片</button></details></section>
       <div class="mg-drawer-backdrop" hidden><aside class="mg-drawer" aria-label="模板与样式"><header><h2>模板与样式</h2><button data-action="close-appearance" class="mg-button">完成</button></header><section class="mg-settings"><div class="mg-section-title"><h2>微调样式</h2><button data-action="reset" class="mg-text-button">重置</button></div><label class="mg-field">正文字号 <span class="mg-font-value"></span><input class="mg-font-input" type="range" min="12" max="24" step="1" value="16"></label><label class="mg-color-field">主题颜色<input class="mg-color-input" type="color" value="#3d6254"></label><label class="mg-check"><input class="mg-footnotes" type="checkbox"> 公众号文末保留链接</label><div class="mg-template-controls"><button data-action="save-template" class="mg-text-button">存为新模板</button><button data-action="export-template" class="mg-text-button">导出模板</button><button data-action="delete-template" class="mg-text-button mg-danger">删除</button></div><div class="mg-template-source"></div></section><section class="mg-library"><div class="mg-section-title"><h2>模板库</h2><span class="mg-template-count"></span></div><div class="mg-template-list"></div><div class="mg-library-bottom"><button data-action="learn" class="mg-button mg-learn">＋ 链接学模板</button><button data-action="import" class="mg-text-button">导入模板 JSON</button><input type="file" class="mg-file-input" accept="application/json,.json" hidden></div></section></aside></div>
       <footer class="mg-status" role="status" aria-live="polite">编辑、预览随时切换；宽窗口可左右对照。</footer>`,
     );
@@ -304,11 +305,15 @@ export class Studio {
         void this.run("复制标题…", async () => {
           const title = this.draft.title.trim();
           if (!title) throw new Error("请先输入标题或选择笔记。");
-          await this.host.copy(title);
+          await this.host.copy(title, undefined, this.root);
           this.tell("标题已复制，请粘贴到平台的标题栏。");
         }),
     );
     bind("copy", () => void this.run("准备复制…", () => this.copy()));
+    bind(
+      "copy-images",
+      () => void this.run("准备图片…", () => this.imageDialog()),
+    );
     bind("export", () => void this.run("正在生成内容包…", () => this.export()));
     this.root
       .querySelectorAll<HTMLElement>("[data-platform]")
@@ -542,9 +547,9 @@ export class Studio {
     this.q('[data-action="copy"]').textContent =
       platform === "x" && this.previewMode === "thread"
         ? "复制整组串文"
-        : platform === "xiaohongshu"
-          ? "复制正文文案"
-          : "复制正文";
+        : "复制图文正文";
+    this.q('[data-action="copy-images"]').hidden = !imageSources(this.draft)
+      .length;
     if (!this.draft.title && !this.draft.markdown) {
       this.rendered = undefined;
       setSafeHtml(
@@ -570,10 +575,12 @@ export class Studio {
     ];
     if (platform === "xiaohongshu" && count > 1000)
       warnings.push(
-        "文案超过常见的 1,000 字限制。完整内容可导出为卡片；复制文案前请在草稿中精简。",
+        "普通图文的文案常见上限为 1,000 字；长文请以当前发布页限制为准，也可复制或导出排版卡片。",
       );
     if (platform === "xiaohongshu" && Array.from(this.draft.title).length > 20)
-      warnings.push("标题超过常见的 20 字限制，请在发布前精简。");
+      warnings.push(
+        "普通图文标题常见上限为 20 字；长文请以当前发布页提示为准。",
+      );
     setSafeHtml(
       this.q(".mg-warnings"),
       warnings.map((w) => `<p>${escapeHtml(w)}</p>`).join(""),
@@ -602,7 +609,11 @@ export class Studio {
           "click",
           () =>
             void this.run("复制串文…", async () => {
-              await this.host.copy(threads[Number(el.dataset.tweet)]);
+              await this.host.copy(
+                threads[Number(el.dataset.tweet)],
+                undefined,
+                this.root,
+              );
               this.tell(`第 ${Number(el.dataset.tweet) + 1} 条已复制。`);
             }),
         ),
@@ -613,7 +624,19 @@ export class Studio {
         '<div class="mg-empty"><p>正在按内容分页…</p></div>',
       );
       void this.paintCards(this.cardGeneration);
-    } else setSafeHtml(this.preview, this.rendered.html);
+    } else {
+      setSafeHtml(this.preview, this.rendered.html);
+      this.preview.querySelectorAll("img").forEach((img, index) => {
+        const button = createEl("button", {
+          cls: "mg-image-copy",
+          text: `复制这张图 · ${index + 1}`,
+        });
+        button.type = "button";
+        button.dataset.copyImage = String(index);
+        img.after(button);
+        this.bindImageCopy(button, img.src, index);
+      });
+    }
   }
   private async paintCards(generation: number) {
     try {
@@ -627,11 +650,30 @@ export class Studio {
       }
       this.cardDeck = deck;
       this.preview.replaceChildren();
-      for (const card of deck.cards) {
+      for (const [index, card] of deck.cards.entries()) {
         const frame = createDiv();
         frame.className = "mg-card-frame";
         frame.append(card.cloneNode(true));
         this.preview.append(frame);
+        const button = this.preview.createEl("button", {
+          cls: "mg-button",
+          text: `复制卡片 ${index + 1}`,
+        });
+        button.dataset.copyCard = String(index);
+        button.addEventListener(
+          "click",
+          () =>
+            void this.run("复制卡片…", async () => {
+              await copyPng(
+                async () =>
+                  new Blob([await cardPng(card)], { type: "image/png" }),
+                this.root,
+              );
+              this.tell(
+                `卡片 ${index + 1} 已作为图片复制，请粘贴到支持图片粘贴的发布区。`,
+              );
+            }),
+        );
       }
       this.tell(
         `已分页为 ${deck.cards.length} 张卡片，导出尺寸为 1080 × 1440。`,
@@ -674,28 +716,75 @@ export class Studio {
   }
   private async copy() {
     const textOnly =
-      this.settings.platform === "xiaohongshu" ||
-      (this.settings.platform === "x" && this.previewMode === "thread");
+      this.settings.platform === "x" && this.previewMode === "thread";
     if (textOnly) this.fresh();
     else await this.completeContent();
     const content = this.bodyContent();
     if (!this.draft.markdown.trim())
       throw new Error("正文为空，请先输入正文。");
-    if (this.settings.platform === "xiaohongshu")
-      await this.host.copy(content.plainText);
-    else if (textOnly)
+    if (textOnly)
       await this.host.copy(
         splitThread(content.plainText).join("\n\n—— 下一条 ——\n\n"),
+        undefined,
+        this.root,
       );
-    else await this.host.copy(content.plainText, content.html);
+    else await this.host.copy(content.plainText, content.html, this.root);
     const count = imageSources(this.draft).length;
     this.tell(
       textOnly
-        ? "正文已复制（不含标题）；图片请通过内容包上传。"
+        ? "串文已复制（不含标题）；配图可用“复制图片”单独粘贴。"
         : count
-          ? "正文已复制（不含标题）。剪贴板中的图片可能被平台过滤；公众号请使用“导出 Word 图文”。"
+          ? `图文正文已复制（含 ${count} 张内嵌图片，不含标题）。若平台过滤图片，可用“复制图片”；小红书普通图文需在图片区粘贴。`
           : "正文已复制（不含标题），请粘贴到平台正文编辑器。",
     );
+  }
+  private bindImageCopy(
+    button: HTMLButtonElement,
+    source: string,
+    index: number,
+  ) {
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      void this.run("复制图片…", async () => {
+        await copyPng(() => imagePng(source, this.root), this.root);
+        const message = `第 ${index + 1} 张图片已复制，请粘贴到支持图片粘贴的编辑区。`;
+        this.tell(message);
+        const status = button
+          .closest(".mg-modal-content")
+          ?.querySelector("[data-image-copy-status]");
+        if (status) status.textContent = message;
+      });
+    });
+  }
+  private async imageDialog() {
+    await this.completeContent();
+    const content = this.bodyContent();
+    const parsed = createDiv();
+    setSafeHtml(parsed, content.html);
+    const images = Array.from(parsed.querySelectorAll("img"));
+    if (!images.length) throw new Error("正文没有图片。");
+    const modal = this.dialog(
+      "复制正文图片",
+      '<p class="mg-modal-intro">每次复制一张原图。小红书普通图文请粘贴到图片区；长文可在正文对应位置粘贴。GIF 会复制当前静态画面。</p><p data-image-copy-status role="status">选择图片后复制</p><div class="mg-copy-gallery"></div>',
+    );
+    const gallery = modal.querySelector<HTMLElement>(".mg-copy-gallery")!;
+    images.forEach((img, index) => {
+      const item = gallery.createEl("figure");
+      const source = img.src;
+      img.removeAttribute("style");
+      item.append(img);
+      item.createEl("figcaption", {
+        text: `${index + 1}. ${img.alt || "正文配图"}`,
+      });
+      const button = item.createEl("button", {
+        cls: "mg-button",
+        text: "复制这张图",
+      });
+      button.dataset.copyImage = String(index);
+      this.bindImageCopy(button, source, index);
+    });
+    this.tell(`已准备 ${images.length} 张图片，可逐张复制。`);
   }
   private async publishFiles(kind?: "word" | "cards" | "images") {
     const platform = this.settings.platform;
@@ -846,7 +935,7 @@ export class Studio {
       content: JSON.stringify(
         {
           version: 1,
-          pluginVersion: "0.1.3",
+          pluginVersion: "0.1.4",
           title: draft.title,
           sourceNote: draft.sourcePath,
           platform,

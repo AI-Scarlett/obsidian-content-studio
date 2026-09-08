@@ -1300,6 +1300,41 @@
 }
 
 /* Hidden tools must stay collapsed after all workspace layout rules. */
+/* Native selection must remain rendered for Chromium to copy rich content. */
+.mg-copy-stage {
+  position: fixed;
+  left: -10000px;
+  top: 0;
+  width: 740px;
+  background: #fff;
+  color: #222;
+  user-select: text;
+}
+.mg .mg-image-copy {
+  display: block;
+  margin: 6px 0 14px;
+  font-family: var(--font-interface);
+  font-size: 12px;
+}
+.mg .mg-copy-gallery {
+  display: grid;
+  gap: 20px;
+}
+.mg .mg-copy-gallery figure {
+  margin: 0;
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+}
+.mg .mg-copy-gallery img {
+  max-width: 100%;
+  max-height: 220px;
+  object-fit: contain;
+}
+.mg .mg-copy-gallery figcaption {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
 .mg.mg.mg [hidden] {
   display: none;
 }

@@ -79,7 +79,7 @@ export const PLATFORMS: Record<
   wechat: {
     name: "公众号",
     label: "WECHAT",
-    hint: "有图片请导出 Word 图文，在公众号编辑器导入文档；标题单独复制。",
+    hint: "标题、图文正文分开复制；图片被过滤时可逐张复制，或导入 Word 图文。",
   },
   zhihu: {
     name: "知乎",
@@ -89,7 +89,7 @@ export const PLATFORMS: Record<
   xiaohongshu: {
     name: "小红书",
     label: "REDNOTE",
-    hint: "图片通过“导出发布图片”批量上传；复制正文只复制文案。",
+    hint: "长文可复制图文正文；普通图文请在图片区粘贴原图，或复制排版卡片。",
   },
   x: {
     name: "X",

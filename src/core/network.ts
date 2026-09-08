@@ -142,7 +142,7 @@ export async function downloadPublic(
         {
           agent: false,
           headers: {
-            "User-Agent": "Mozilla/5.0 ContentStudio/0.1.3",
+            "User-Agent": "Mozilla/5.0 ContentStudio/0.1.4",
             Accept:
               kind === "html"
                 ? "text/html,application/xhtml+xml"

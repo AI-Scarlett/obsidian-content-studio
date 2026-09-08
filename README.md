@@ -4,7 +4,7 @@ English | [简体中文](README.zh-CN.md)
 
 Format Obsidian notes for WeChat Official Accounts, Zhihu, Xiaohongshu and X. Choose one of six built-in templates, adjust typography and colors, or learn reusable styles from an article URL. The interface is currently in Simplified Chinese.
 
-Desktop only. Version 0.1.3. Requires Obsidian 1.8.7 or later; earlier native validation used 1.13.7. Version 0.1.3 has automated host and DOM regression coverage. Formatting preserves your source text and runs locally. No AI account, API key or automatic publishing is required.
+Desktop only. Version 0.1.4. Requires Obsidian 1.8.7 or later; earlier native validation used 1.13.7. Version 0.1.4 has automated host and DOM regression coverage. Formatting preserves your source text and runs locally. No AI account, API key or automatic publishing is required.
 
 ## Features
 
@@ -12,7 +12,7 @@ Desktop only. Version 0.1.3. Requires Obsidian 1.8.7 or later; earlier native va
 | --- | --- |
 | WeChat | Native DOCX with embedded media, rich text, HTML, Markdown and optional link references |
 | Zhihu | Rich text and Markdown with headings, quotations, lists, code and tables |
-| Xiaohongshu | Separate captions, numbered original images and content-paginated 1080 × 1440 PNG cards |
+| Xiaohongshu | Rich-text long-form body, individually copyable original images and 1080 × 1440 PNG cards |
 | X | Rich-text article drafts and threads limited to 280 weighted characters per post |
 
 Six templates: Ink (墨白), Cinnabar (朱砂), Bamboo (青竹), Blueprint (蓝图), Cream Notes (奶油手记) and Black & Gold (黑金刊物). Save adjustments as a new template, or import/export template JSON.
@@ -33,8 +33,8 @@ For updates, replace only `main.js`, `manifest.json` and `styles.css`; keep `dat
 1. Select a note with **选择笔记**, read the active note with **读取当前笔记**, or paste Markdown in the studio.
 2. Write in the full-size editor; switch to **预览** for preview or **对照** for a side-by-side view on wide panes. Templates and styling live in the **模板与样式** drawer.
 3. Wait for the image counter. Use **重新载入图片** to retry failures.
-4. For WeChat with images, use **导出 Word 图文**, then import `article.docx` in the platform's document importer. The file embeds media at their original positions. Copy the title separately. Platform import may remap styles; check the destination preview.
-5. For Xiaohongshu, choose **导出发布图片** and either export cards (text and images flattened together to preserve their arrangement) or original images (caption remains separate). Bulk-select the numbered files on the platform. Split oversized decks according to the destination's current image limits; exports are never silently truncated.
+4. Use **复制标题** and **复制图文正文** separately. Rich body copying now includes images in Xiaohongshu mode too. For WeChat document import, use **导出 Word 图文**, then import `article.docx` in the platform's document importer. The file embeds media at their original positions. Copy the title separately. Platform import may remap styles; check the destination preview.
+5. Use **复制图片** or **复制这张图** beside each preview image to copy actual PNG bytes. In Xiaohongshu card preview, **复制卡片 N** copies that entire card as an image. Paste into an image-capable editor/upload area. To export several files, choose **导出发布图片** and either export cards (text and images flattened together to preserve their arrangement) or original images (caption remains separate). Bulk-select the numbered files on the platform. Split oversized decks according to the destination's current image limits; exports are never silently truncated.
 6. Title and body remain separate copy actions. Review the result in the destination and publish manually.
 
 Each export creates a new folder under `墨稿导出/` by default, configurable in plugin settings. Packages include `article.html`, `article.md`, `title.txt`, `caption.txt`, `template.json`, `manifest.json`, and numbered image files. Markdown references are rewritten to the image files. HTML embeds the image bytes. Xiaohongshu exports additional PNG cards; X exports separate thread text files.
@@ -51,7 +51,9 @@ For a login page, verification challenge or failed download, use **粘贴 HTML**
 
 PNG, JPEG, GIF, WebP and AVIF attachments are supported, including Obsidian `![[image.png]]` embeds and Markdown image references. SVG, PDFs, audio/video and other plugins' dynamic blocks are not embedded as images.
 
-Clipboard HTML contains embedded image bytes, which platform editors can reject. The plugin no longer claims that copying uploaded the images. Use native DOCX import for WeChat and bulk image upload for Xiaohongshu. These are local export workflows, with no platform login or upload API integration. Actual platform import/upload acceptance remains a separate validation step.
+Rich copying writes `text/html` plus `text/plain`, with native selection copying as a compatibility fallback. Clipboard HTML includes embedded image data, which platform editors can reject. An HTML image tag is different from a clipboard image file: the per-image and per-card buttons write `image/png` without competing text formats. GIF image copying is static; source images over 40 megapixels must be resized first. Copy controls are excluded from article HTML and cards.
+
+Ordinary Xiaohongshu photo posts have separate image and caption areas; long-form articles have a body editor. Paste images into the appropriate surface. The plugin does not log in, upload media or publish. Local clipboard validation does not imply the destination accepted the images. DOCX and numbered image exports remain available.
 
 DOCX retains basic paragraph and inline formatting, lists, tables, links and embedded images. It simplifies template decorations and maps light text to readable ink on a white page. WebP/AVIF/GIF become PNG (GIF is static); oversized images are bounded to 2000 px on their longest edge. Platform exports include separate `title.txt` and `body.txt`. Content package `caption.txt` contains the body only.
 
@@ -78,7 +80,7 @@ npm run verify
 npm run package
 ```
 
-`npm run verify` includes the official Obsidian ESLint recommended rules (zero warnings required), CSS lint, type checks, and 74 regression tests. CSS is also checked against a conservative Chrome 120 compatibility profile. The development browser prototype was removed from the plugin source in 0.1.2; run the workbench inside Obsidian to test actual Vault behavior.
+`npm run verify` includes the official Obsidian ESLint recommended rules (zero warnings required), CSS lint, type checks, and 80 regression tests. CSS is also checked against a conservative Chrome 120 compatibility profile. The development browser prototype was removed from the plugin source in 0.1.2; run the workbench inside Obsidian to test actual Vault behavior.
 
 Releases are built from version tags by [GitHub Actions](https://github.com/AI-Scarlett/obsidian-content-studio/actions/workflows/release.yml). Only the three supported plugin files are attached to a Release; optional ZIP/checksum packages are available as Actions artifacts or via `npm run package`. The workflow generates GitHub build-provenance attestations for all three release files. After downloading them, verify provenance with:
 
