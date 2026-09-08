@@ -157,7 +157,7 @@ export class EditorSession {
   private check() {
     if (this.stopped || !this.root.isConnected)
       throw new Error(
-        "导入已停止或编辑器已关闭；请保留当前草稿并检查已导入部分。",
+        "同步已停止或编辑器已关闭；请保留当前草稿并检查已同步部分。",
       );
   }
   private focusRange(range: Range) {
@@ -195,7 +195,7 @@ export class EditorSession {
     }
     const start = text.indexOf(marker);
     if (start < 0 || text.indexOf(marker, start + 1) !== -1)
-      throw new Error("编辑器改变了图片位置标记，已停止导入。");
+      throw new Error("编辑器改变了图片位置标记，已停止同步。");
     let offset = 0;
     const range = this.root.ownerDocument.createRange();
     let began = false;
@@ -215,14 +215,14 @@ export class EditorSession {
   }
   async begin(plan: Omit<ImportPlan, "images">, markers: string[]) {
     if (this.plan || this.stopped)
-      throw new Error("本次导入已经开始，请勿重复导入。");
+      throw new Error("本次同步已经开始，请勿重复同步。");
     const title = titleField(this.root.ownerDocument, this.platform);
     if (!empty(this.root) || !title || title.value.trim())
       throw new Error(
-        "请在标题和正文都为空的新长文草稿中导入，避免覆盖已有内容。",
+        "请在标题和正文都为空的新长文草稿中同步，避免覆盖已有内容。",
       );
     if (plan.platform !== this.platform)
-      throw new Error("内容包平台与当前编辑器不同，请重新选择对应平台导出。");
+      throw new Error("稿件平台与当前编辑器不同，请在墨稿重新选择发布平台。");
     if (title.maxLength > 0 && plan.title.length > title.maxLength)
       throw new Error(
         `标题超过平台 ${title.maxLength} 字上限，请先在墨稿修改。`,
@@ -322,7 +322,7 @@ export class EditorSession {
       // If the destination ignored the File paste, report failure, never insert data URLs.
     }
     throw new Error(
-      `第 ${this.urls.length + 1} 张图片未在 45 秒内变成可显示的平台图片。导入已停止，请检查平台上传提示；已导入内容保留。`,
+      `第 ${this.urls.length + 1} 张图片未在 45 秒内变成可显示的平台图片。同步已停止，请检查平台上传提示；已同步内容保留。`,
     );
   }
   async finish() {

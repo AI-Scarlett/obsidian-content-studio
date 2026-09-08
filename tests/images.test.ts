@@ -1,3 +1,4 @@
+import type { BrowserArticle } from "../src/core/browser-bridge";
 import { installDomGlobals } from "./dom";
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -21,8 +22,12 @@ function harness(read: (src: string) => Promise<string> = async () => png) {
   const clips: { text: string; html?: string }[] = [],
     packages: OutputFile[][] = [],
     reads: string[] = [];
+  const deliveries: BrowserArticle[] = [];
   const host: Host = {
     settings: structuredClone(DEFAULT_SETTINGS),
+    publishArticle: async (article) => {
+      deliveries.push(article);
+    },
     saveSettings: async () => {},
     currentNote: async () => draft(),
     chooseNote: async () => draft(),
@@ -49,7 +54,7 @@ function harness(read: (src: string) => Promise<string> = async () => png) {
     },
   };
   const studio = new Studio(root, host);
-  return { root, studio, clips, packages, reads };
+  return { root, studio, clips, packages, reads, deliveries };
 }
 async function click(h: ReturnType<typeof harness>, action: string) {
   h.root.querySelector<HTMLButtonElement>(`[data-action="${action}"]`)!.click();
@@ -355,15 +360,14 @@ test("Xiaohongshu photo delivery saves numbered media plus separate title/body, 
   }
 });
 
-test("browser article package embeds all images, separates title and excludes Vault paths", async () => {
+test("one publish click sends entire article and images with separate title and no exported files", async () => {
   const h = harness();
   try {
     await h.studio.openDraft(draft());
-    await click(h, "browser-import");
-    const file = h.packages[0].find(
-      (file) => file.name === "article-mogao.json",
-    )!;
-    const article = JSON.parse(String(file.content));
+    await click(h, "publish-browser");
+    assert.equal(h.deliveries.length, 1);
+    assert.equal(h.packages.length, 0);
+    const article = h.deliveries[0];
     assert.equal(article.format, "mogao-article");
     assert.equal(article.title, "图文测试");
     assert.equal(article.platform, "wechat");
@@ -372,22 +376,77 @@ test("browser article package embeds all images, separates title and excludes Va
       (article.html.match(/data:image\/png;base64/g) || []).length,
       2,
     );
-    assert.ok(!String(file.content).includes("Notes/test.md"));
+    assert.ok(!JSON.stringify(article).includes("Notes/test.md"));
   } finally {
     h.studio.destroy();
     h.root.remove();
   }
 });
 
-test("browser export stops if a note image cannot be loaded", async () => {
+test("publishing stops before opening browser if an image cannot be loaded", async () => {
   const h = harness(async () => {
     throw new Error("missing");
   });
   try {
     await h.studio.openDraft(draft());
-    await click(h, "browser-import");
+    await click(h, "publish-browser");
     assert.equal(h.packages.length, 0);
+    assert.equal(h.deliveries.length, 0);
     assert.match(h.root.querySelector(".mg-status")!.textContent!, /图片/);
+  } finally {
+    h.studio.destroy();
+    h.root.remove();
+  }
+});
+
+test("publish snapshot includes unsaved studio edits without file export or preference changes", async () => {
+  const h = harness();
+  try {
+    await h.studio.openDraft(draft());
+    const title = h.root.querySelector<HTMLInputElement>(".mg-title-input")!;
+    title.value = "尚未保存的新标题";
+    title.dispatchEvent(new window.Event("input"));
+    const body =
+      h.root.querySelector<HTMLTextAreaElement>(".mg-markdown-input")!;
+    body.value += "\n\n未保存的新增段落";
+    body.dispatchEvent(new window.Event("input"));
+    const article = await h.studio.articleForBrowser("xiaohongshu");
+    assert.equal(article.title, "尚未保存的新标题");
+    assert.equal(article.source, "studio");
+    assert.match(article.html, /未保存的新增段落/);
+    assert.equal((article.html.match(/data:image/g) || []).length, 2);
+    assert.ok(!article.html.includes("<h1"));
+    assert.equal(h.packages.length, 0);
+    assert.equal(
+      h.root
+        .querySelector('[data-platform="wechat"]')!
+        .getAttribute("aria-pressed"),
+      "true",
+    );
+  } finally {
+    h.studio.destroy();
+    h.root.remove();
+  }
+});
+test("reading a newly opened Obsidian note retains the existing studio draft and uses its current styling", async () => {
+  const h = harness();
+  try {
+    await h.studio.openDraft(draft());
+    const article = await h.studio.articleForBrowser("zhihu", {
+      title: "新打开的笔记",
+      markdown: "新的正文",
+      sourcePath: "new.md",
+    });
+    assert.equal(article.source, "note");
+    assert.match(article.html, /新的正文/);
+    assert.equal(
+      h.root.querySelector<HTMLInputElement>(".mg-title-input")!.value,
+      "图文测试",
+    );
+    assert.match(
+      h.root.querySelector<HTMLTextAreaElement>(".mg-markdown-input")!.value,
+      /开头/,
+    );
   } finally {
     h.studio.destroy();
     h.root.remove();

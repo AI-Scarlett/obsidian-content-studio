@@ -80,17 +80,17 @@ export const PLATFORMS: Record<
   wechat: {
     name: "公众号",
     label: "WECHAT",
-    hint: "整篇带图导入可使用浏览器导入包与配套扩展预览版；标题仍可单独复制。",
+    hint: "点“发布到公众号”，自动打开平台并同步标题、正文和图片。",
   },
   zhihu: {
     name: "知乎",
     label: "ZHIHU",
-    hint: "标题与正文分开；浏览器导入包面向知乎专栏长文编辑器。",
+    hint: "点“发布到知乎”，自动打开专栏并同步整篇图文。",
   },
   xiaohongshu: {
     name: "小红书",
     label: "REDNOTE",
-    hint: "浏览器导入包面向小红书长文；普通图文仍可导出排版卡片。",
+    hint: "点“发布到小红书”，自动打开长文编辑器并同步整篇图文。",
   },
   x: {
     name: "X",

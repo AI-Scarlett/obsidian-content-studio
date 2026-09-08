@@ -1,183 +1,244 @@
-import { MAX_PACKAGE_BYTES, prepareArticle, readArticle } from "./package";
+import { prepareArticle, readArticle } from "./package";
+import { destinations, handoffUrl, jobEndpoint } from "./handoff";
 import type { Command, ImportPlan, Probe, Reply } from "./types";
 
 const q = <T extends HTMLElement>(id: string) =>
   document.getElementById(id) as T;
-const tabId = Number(new URL(location.href).searchParams.get("tab"));
-const checkButton = q<HTMLButtonElement>("check"),
-  importButton = q<HTMLButtonElement>("import"),
-  cancelButton = q<HTMLButtonElement>("cancel"),
-  fileInput = q<HTMLInputElement>("file");
-let target: { frameId: number; probe: Probe } | undefined;
-let plan: ImportPlan | undefined;
-let importing = false;
-let cancelled = false;
+const source = handoffUrl(new URL(location.href).searchParams.get("job"));
+const runId = crypto.randomUUID();
+const headers = {
+  "X-Mogao-Extension": chrome.runtime.id,
+  "X-Mogao-Run": runId,
+  "Content-Type": "application/json",
+};
 const names = {
   wechat: "微信公众号",
   xiaohongshu: "小红书长文",
   zhihu: "知乎专栏",
 };
-function status(text: string, error = false) {
+let tabId: number | undefined;
+let target: { frameId: number; probe: Probe } | undefined;
+let cancelled = false;
+let importing = false;
+let completed = false;
+let claimed = false;
+let lastStatus = "";
+let reporting = Promise.resolve();
+const pause = (ms: number) =>
+  new Promise<void>((resolve) => window.setTimeout(resolve, ms));
+function check() {
+  if (cancelled) throw new Error("已停止同步，已同步内容保留在平台草稿中。");
+}
+async function report(text: string, done = false) {
   q("status").textContent = text;
-  q("status").classList.toggle("error", error);
-}
-function buttons() {
-  checkButton.disabled = importing;
-  fileInput.disabled = importing;
-  importButton.disabled =
-    importing ||
-    !plan ||
-    !target ||
-    !target.probe.empty ||
-    !target.probe.titleEmpty ||
-    plan.platform !== target.probe.platform;
-  cancelButton.disabled = !importing;
-}
-function fail(error: unknown) {
-  status(error instanceof Error ? error.message : String(error), true);
+  if (text === lastStatus && !done) return;
+  lastStatus = text;
+  if (!source || !claimed) return;
+  // Serialize progress so a slow old request cannot overwrite newer status.
+  reporting = reporting.then(async () => {
+    await fetch(jobEndpoint(source), {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ status: text, done }),
+      signal: AbortSignal.timeout(5000),
+    }).catch(() => {});
+  });
+  await reporting;
 }
 async function command(message: Command): Promise<Reply> {
-  if (!target) throw new Error("尚未识别编辑器。");
+  if (tabId === undefined || !target) throw new Error("平台编辑器尚未就绪。");
   const reply: Reply = await chrome.tabs.sendMessage(tabId, message, {
     frameId: target.frameId,
   });
   if (!reply?.ok)
-    throw new Error(reply?.error || "编辑器没有响应，请重新检查。");
+    throw new Error(reply?.error || "平台编辑器已关闭或没有响应。");
   return reply;
 }
-async function inspect() {
-  target = undefined;
-  buttons();
-  try {
-    if (!Number.isSafeInteger(tabId) || tabId <= 0)
-      throw new Error("请在目标平台标签页点击扩展图标打开。");
-    const tab = await chrome.tabs.get(tabId);
-    const host = new URL(tab.url || "about:blank").hostname;
+async function waitForEditor(plan: ImportPlan) {
+  const deadline = Date.now() + 20 * 60 * 1000;
+  let lastNavigation = "";
+  let lastNavigationTime = 0;
+  while (Date.now() < deadline) {
+    check();
+    const tab = await chrome.tabs.get(tabId!);
     if (
-      ![
-        "creator.xiaohongshu.com",
-        "mp.weixin.qq.com",
-        "zhuanlan.zhihu.com",
-      ].includes(host)
-    )
-      throw new Error(
-        "请先打开公众号、小红书长文或知乎专栏的编辑页，然后在该页面点击扩展图标。",
+      tab.status === "complete" &&
+      tab.url?.startsWith(new URL(destinations[plan.platform]).origin + "/")
+    ) {
+      let frames: chrome.scripting.InjectionResult[] = [];
+      try {
+        frames = await chrome.scripting.executeScript({
+          target: { tabId: tabId!, allFrames: true },
+          files: ["content.js"],
+        });
+      } catch {
+        /* login/navigation can replace the document between calls */
+      }
+      check();
+      const probes = await Promise.all(
+        frames.map(async (frame) => {
+          try {
+            const reply: Reply = await chrome.tabs.sendMessage(
+              tabId!,
+              { op: "probe" },
+              { frameId: frame.frameId },
+            );
+            return reply.probe
+              ? { frameId: frame.frameId, probe: reply.probe }
+              : undefined;
+          } catch {
+            return undefined;
+          }
+        }),
       );
-    const frames = await chrome.scripting.executeScript({
-      target: { tabId, allFrames: true },
-      files: ["content.js"],
-    });
-    const probes = await Promise.all(
-      frames.map(async (frame) => {
-        try {
-          const reply: Reply = await chrome.tabs.sendMessage(
-            tabId,
-            { op: "probe" },
-            { frameId: frame.frameId },
+      check();
+      const found = probes.filter(
+        (value): value is NonNullable<typeof value> => !!value,
+      );
+      if (found.length > 1)
+        throw new Error(
+          "平台同时显示多个编辑器，已停止同步，请在墨稿重新发布。",
+        );
+      if (found.length === 1) {
+        if (found[0].probe.platform !== plan.platform)
+          throw new Error("平台与稿件不一致。");
+        if (!found[0].probe.empty || !found[0].probe.titleEmpty)
+          throw new Error(
+            "平台恢复了一篇已有内容的草稿，已停止，原稿没有被覆盖。请关闭该草稿后在墨稿重新发布。",
           );
-          return reply.probe
-            ? { frameId: frame.frameId, probe: reply.probe }
-            : undefined;
-        } catch {
-          return undefined;
-        }
-      }),
-    );
-    const found = probes.filter((probe) => !!probe);
-    if (found.length !== 1)
-      throw new Error(
-        "没有找到唯一可用的长文编辑器。请确认已进入正文编辑页；当前版本可能尚不兼容这个页面。",
-      );
-    target = found[0];
-    q("target").textContent =
-      `${names[target.probe.platform]} · ${target.probe.empty && target.probe.titleEmpty ? "空白草稿，可以导入" : "已有内容，请换用标题和正文都为空的新草稿"}`;
-    if (fileInput.files?.[0]) await loadFile();
-    buttons();
-  } catch (error) {
-    q("target").textContent = "尚不可导入";
-    fail(error);
+        target = found[0];
+        return;
+      }
+      let reply: Reply | undefined;
+      try {
+        reply = await chrome.tabs.sendMessage(
+          tabId!,
+          { op: "prepare", platform: plan.platform },
+          { frameId: 0 },
+        );
+      } catch {
+        /* document may still be changing */
+      }
+      const next = reply?.preparation?.navigate;
+      if (
+        next &&
+        new URL(next).origin === new URL(destinations[plan.platform]).origin &&
+        (next !== lastNavigation || Date.now() - lastNavigationTime > 15000)
+      ) {
+        check();
+        lastNavigation = next;
+        lastNavigationTime = Date.now();
+        await chrome.tabs.update(tabId!, { url: next });
+      }
+      await report(reply?.preparation?.status || "正在等待平台的新稿编辑器…");
+    } else await report("请在平台页面完成登录，登录后会自动继续同步。");
+    await pause(1000);
   }
-}
-async function loadFile() {
-  plan = undefined;
-  buttons();
-  try {
-    const file = fileInput.files?.[0];
-    if (!file) return;
-    if (!target) throw new Error("请先检查编辑器，再选择内容包。");
-    if (file.size > MAX_PACKAGE_BYTES)
-      throw new Error("内容包超过 64 MB，请拆分文章。");
-    const article = readArticle(
-      await file.text(),
-      file.name.endsWith(".html") ? "html" : "json",
-      target.probe.platform,
-      window,
-    );
-    const prepared = prepareArticle(article, window);
-    if (prepared.platform !== target.probe.platform)
-      throw new Error(
-        "内容包的平台与当前编辑器不同，请在墨稿选择当前平台后重新导出。",
-      );
-    plan = prepared;
-    q("article").textContent =
-      `《${plan.title}》\n${plan.images.length} 个图片位置 · ${names[plan.platform]}`;
-    status(
-      "准备完成。点击后将向当前平台上传这篇文章的图片；导入期间请保持目标页面打开，不要编辑正文。",
-    );
-    buttons();
-  } catch (error) {
-    q("article").textContent = "文件未准备好";
-    fail(error);
-  }
+  throw new Error("等待平台登录或编辑器超时。请回到墨稿再次点击发布。");
 }
 async function run() {
-  if (!plan || !target || importing) return;
-  importing = true;
-  cancelled = false;
-  buttons();
+  if (!source) {
+    q("intro").textContent =
+      "扩展已安装。回到 Obsidian 墨稿，选择平台并点击“发布到平台”即可。";
+    q("article").textContent = "从墨稿开始发布";
+    q("guide").textContent = "稿件会自动送到这里，无需在浏览器选择或读取文件。";
+    q("status").textContent = "等待墨稿发起发布。";
+    return;
+  }
+  q<HTMLButtonElement>("cancel").disabled = false;
   try {
-    // Probe again immediately before mutation: page may have changed while the file was selected.
+    const response = await fetch(jobEndpoint(source), {
+      headers,
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!response.ok) {
+      const failure = await response.json().catch(() => ({}));
+      throw new Error(
+        failure.error ||
+          "发布任务已过期或已由另一个窗口接收，请在墨稿重新发布。",
+      );
+    }
+    claimed = true;
+    const payload = await response.json();
+    check();
+    const plan = prepareArticle(
+      readArticle(JSON.stringify(payload.article), "json", undefined, window),
+      window,
+    );
+    q("intro").textContent = "稿件已从墨稿送达，正在自动同步到平台。";
+    q("article").textContent = plan.title;
+    q("target").textContent =
+      `${names[plan.platform]} · ${plan.images.length} 张图片`;
+    await report(`正在打开${names[plan.platform]}…`);
+    check();
+    const tab = await chrome.tabs.create({
+      url: destinations[plan.platform],
+      active: true,
+    });
+    if (tab.id === undefined) throw new Error("无法打开平台标签页。");
+    tabId = tab.id;
+    q<HTMLButtonElement>("show").disabled = false;
+    await waitForEditor(plan);
+    check();
+    // Recheck immediately before changing the editor; never reuse an existing draft.
     const probe = (await command({ op: "probe" })).probe;
     if (!probe?.empty || !probe.titleEmpty || probe.platform !== plan.platform)
-      throw new Error("目标草稿已变化，请换用空白草稿并重新检查。");
+      throw new Error("平台草稿已变化，已停止同步。");
     const { images, ...body } = plan;
-    status("正在导入正文并设置图片位置…");
+    importing = true;
+    await report("正在同步正文…");
+    check();
     await command({
       op: "begin",
       plan: body,
       markers: images.map((image) => image.marker),
     });
     for (const [index, image] of images.entries()) {
-      if (cancelled) throw new Error("已停止导入，已导入部分保留在草稿中。");
-      status(`正在由平台上传图片 ${index + 1} / ${images.length}…`);
-      const reply = await command({ op: "image", image });
-      status(reply.progress?.text || "正在核对图片…");
+      check();
+      await report(`正在上传图片 ${index + 1} / ${images.length}…`);
+      check();
+      await command({ op: "image", image });
     }
-    if (cancelled) throw new Error("已停止导入。");
+    check();
     const result = await command({ op: "finish" });
-    status(result.progress?.text || "导入流程完成，请检查草稿。");
+    completed = true;
+    await report(
+      result.progress?.text || "图文同步完成，请在平台检查后自行发表。",
+      true,
+    );
+    q("guide").textContent =
+      "标题、正文和图片已经填写。请在平台预览并确认草稿保存完成，最后由你点击发表。";
   } catch (error) {
-    await command({ op: "cancel" }).catch(() => {});
-    fail(error);
+    if (importing) await command({ op: "cancel" }).catch(() => {});
+    q("status").classList.add("error");
+    await report(error instanceof Error ? error.message : String(error), true);
+    completed = true;
   } finally {
     importing = false;
-    // Reusing the same draft could duplicate the article. Require a fresh explicit probe.
-    target = undefined;
-    buttons();
-    q("target").textContent =
-      "本次导入已结束；再次导入前请打开空白草稿并重新检查。";
+    q<HTMLButtonElement>("cancel").disabled = true;
   }
 }
-checkButton.addEventListener("click", () => void inspect());
-fileInput.addEventListener("change", () => void loadFile());
-importButton.addEventListener("click", () => void run());
-cancelButton.addEventListener("click", () => {
+q("show").addEventListener("click", () => {
+  if (tabId !== undefined) void chrome.tabs.update(tabId, { active: true });
+});
+q("cancel").addEventListener("click", () => {
   cancelled = true;
-  cancelButton.disabled = true;
-  void command({ op: "cancel" }).catch(() => {});
-  status("正在停止，已导入部分将保留在草稿中。");
+  q<HTMLButtonElement>("cancel").disabled = true;
+  if (importing) void command({ op: "cancel" }).catch(() => {});
+  void report("已停止同步，已同步内容保留在平台草稿中。", true);
 });
 window.addEventListener("pagehide", () => {
+  cancelled = true;
   if (importing) void command({ op: "cancel" }).catch(() => {});
+  if (source && claimed && !completed)
+    void fetch(jobEndpoint(source), {
+      method: "POST",
+      headers,
+      keepalive: true,
+      body: JSON.stringify({
+        status: "发布窗口已关闭，同步停止。",
+        done: true,
+      }),
+    }).catch(() => {});
 });
-void inspect();
+void run();

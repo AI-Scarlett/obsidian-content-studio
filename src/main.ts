@@ -28,6 +28,7 @@ import { learnTemplate, stylesheetLinks } from "./core/learn";
 import { downloadPublic } from "./core/network";
 import { resolveImageAssets } from "./core/images";
 import { errorMessage, isRecord } from "./core/dom";
+import { BrowserBridge } from "./core/browser-bridge";
 import { copyContent } from "./core/clipboard";
 
 const VIEW = "content-studio-view";
@@ -115,6 +116,7 @@ class StudioView extends ItemView {
 export default class ContentStudioPlugin extends Plugin {
   settings: Settings = structuredClone(DEFAULT_SETTINGS);
   private lastNote: TFile | null = null;
+  private bridge?: BrowserBridge;
   async onload() {
     const saved: unknown = await this.loadData();
     if (isRecord(saved)) {
@@ -190,8 +192,15 @@ export default class ContentStudioPlugin extends Plugin {
       }),
     );
     this.addSettingTab(new StudioSettings(this.app, this));
+    this.bridge = new BrowserBridge();
+    try {
+      await this.bridge.start();
+    } catch {
+      new Notice("墨稿：浏览器发布连接未启动，请重新打开墨稿后重试。");
+    }
   }
   onunload() {
+    this.bridge?.stop();
     this.app.workspace
       .getLeavesOfType(VIEW)
       .forEach((leaf) => (leaf.view as StudioView).studio?.destroy());
@@ -233,6 +242,11 @@ export default class ContentStudioPlugin extends Plugin {
           exportFolder: this.settings.exportFolder,
         };
         await this.saveData(this.settings);
+      },
+      publishArticle: async (article, notify) => {
+        if (!this.bridge) throw new Error("浏览器发布连接尚未启动。");
+        const url = this.bridge.publish(article, notify);
+        await shell.openExternal(url);
       },
       currentNote: () => this.activeDraft(),
       chooseNote: async () => {

@@ -32,6 +32,7 @@ export interface Progress {
 }
 export type Command =
   | { op: "probe" }
+  | { op: "prepare"; platform: Destination }
   | { op: "begin"; plan: Omit<ImportPlan, "images">; markers: string[] }
   | { op: "image"; image: InlineImage }
   | { op: "finish" }
@@ -41,4 +42,5 @@ export interface Reply {
   error?: string;
   probe?: Probe;
   progress?: Progress;
+  preparation?: { probe?: Probe; navigate?: string; status?: string };
 }

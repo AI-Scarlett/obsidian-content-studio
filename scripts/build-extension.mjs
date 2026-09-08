@@ -9,6 +9,7 @@ await build({
     "browser-extension/src/background.ts",
     "browser-extension/src/importer.ts",
     "browser-extension/src/content.ts",
+    "browser-extension/src/launcher.ts",
   ],
   bundle: true,
   outdir: folder,
@@ -33,6 +34,7 @@ const files = [
   "importer.css",
   "background.js",
   "content.js",
+  "launcher.js",
   "importer.js",
   "README.md",
   "LICENSE",
@@ -42,7 +44,7 @@ const archive = {};
 for (const name of files)
   archive[name] = new Uint8Array(await readFile(`${folder}/${name}`));
 await writeFile(
-  "dist/mogao-browser-extension-0.1.0-preview.zip",
+  "dist/mogao-browser-extension-0.2.0-preview.zip",
   zipSync(archive),
 );
 console.log(`Built ${folder} and preview ZIP. No platform acceptance implied.`);

@@ -62,7 +62,7 @@ test("local/remote paths, malformed packages and image limits fail before import
     );
   assert.throws(
     () => readArticle('{"template":1}', "json", "wechat", win),
-    /不是墨稿/,
+    /稿件格式不正确/,
   );
   assert.throws(
     () =>

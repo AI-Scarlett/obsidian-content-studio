@@ -1,10 +1,23 @@
 {
   "manifest_version": 3,
-  "name": "墨稿 · 整篇图文导入（预览版）",
-  "version": "0.1.0",
-  "description": "将墨稿文章与本地图片按原位置导入长文编辑器。仅在点击时运行，不自动发布。平台兼容性测试中。",
+  "name": "墨稿 · 浏览器发布助手（预览版）",
+  "version": "0.2.0",
+  "description": "从 Obsidian 墨稿点发布，自动打开平台并同步整篇图文。登录后继续，最终发表由你确认。平台兼容性测试中。",
   "minimum_chrome_version": "120",
-  "permissions": ["activeTab", "scripting"],
-  "action": {"default_title": "导入墨稿整篇图文"},
-  "background": {"service_worker": "background.js"}
+  "permissions": ["scripting"],
+  "host_permissions": [
+    "http://127.0.0.1/*",
+    "https://creator.xiaohongshu.com/*",
+    "https://mp.weixin.qq.com/*",
+    "https://zhuanlan.zhihu.com/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["http://127.0.0.1/*"],
+      "js": ["launcher.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": { "default_title": "墨稿发布助手" },
+  "background": { "service_worker": "background.js" }
 }

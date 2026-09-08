@@ -1,3 +1,4 @@
+import type { BrowserArticle, BridgePlatform } from "../core/browser-bridge";
 import { setSafeHtml, errorMessage } from "../core/dom";
 import {
   BUILTIN_TEMPLATES,
@@ -51,6 +52,10 @@ export interface Host {
   copy(text: string, html?: string, context?: HTMLElement): Promise<void>;
   saveFiles(files: OutputFile[], title: string): Promise<string>;
   revealPath?(path: string): Promise<void>;
+  publishArticle?(
+    article: BrowserArticle,
+    notify: (message: string) => void,
+  ): Promise<void>;
 }
 
 export class Studio {
@@ -157,7 +162,7 @@ export class Studio {
       <div class="mg-workbar"><div class="mg-view-modes" aria-label="工作区模式"><button data-view="edit">编辑</button><button data-view="preview">预览</button><button data-view="split">对照</button></div><span class="mg-source">选择一篇笔记开始</span><span class="mg-counts"></span></div>
       <main class="mg-workspace"><section class="mg-writing" aria-label="编辑排版稿"><label class="mg-title-field">标题<input class="mg-title-input" placeholder="文章标题" maxlength="300"></label><label class="mg-body-label" for="mg-body-${crypto.randomUUID()}">正文 <span>Markdown · 仅编辑排版稿，不改原笔记</span></label><textarea class="mg-markdown-input" aria-label="正文 Markdown" spellcheck="false" placeholder="读取笔记，或在这里粘贴 Markdown 开始写作…"></textarea></section>
       <section class="mg-canvas" aria-label="图文预览"><div class="mg-canvas-toolbar"><span>图文预览</span><div class="mg-preview-modes"><button data-mode="article">排版</button><button data-mode="thread">串文</button><button data-mode="cards">卡片</button></div></div><div class="mg-image-strip" aria-label="笔记图片" hidden></div><div class="mg-preview-scroll"><div class="mg-preview"></div></div></section></main>
-      <section class="mg-output-area"><div class="mg-publish-actions"><button data-action="copy-title" class="mg-button">复制标题</button><button data-action="copy" class="mg-button">复制正文</button><button data-action="browser-import" class="mg-button mg-primary">浏览器导入包</button><button data-action="export" class="mg-text-button">完整内容包</button></div><p class="mg-platform-hint"></p><details class="mg-output-details"><summary><span class="mg-image-status"></span></summary><div class="mg-warnings" aria-live="polite"></div><button data-action="images" class="mg-text-button">重新载入图片</button><button data-action="publish" class="mg-text-button">导出 Word 图文</button><button data-action="copy-images" class="mg-text-button">单独复制图片</button></details></section>
+      <section class="mg-output-area"><div class="mg-publish-actions"><button data-action="copy-title" class="mg-button">复制标题</button><button data-action="copy" class="mg-button">复制正文</button><button data-action="publish-browser" class="mg-button mg-primary">发布到公众号</button></div><p class="mg-platform-hint"></p><details class="mg-output-details"><summary><span class="mg-image-status"></span></summary><div class="mg-warnings" aria-live="polite"></div><button data-action="images" class="mg-text-button">重新载入图片</button><button data-action="export" class="mg-text-button">备份完整内容包</button><button data-action="publish" class="mg-text-button">导出 Word 图文</button><button data-action="copy-images" class="mg-text-button">单独复制图片</button></details></section>
       <div class="mg-drawer-backdrop" hidden><aside class="mg-drawer" aria-label="模板与样式"><header><h2>模板与样式</h2><button data-action="close-appearance" class="mg-button">完成</button></header><section class="mg-settings"><div class="mg-section-title"><h2>微调样式</h2><button data-action="reset" class="mg-text-button">重置</button></div><label class="mg-field">正文字号 <span class="mg-font-value"></span><input class="mg-font-input" type="range" min="12" max="24" step="1" value="16"></label><label class="mg-color-field">主题颜色<input class="mg-color-input" type="color" value="#3d6254"></label><label class="mg-check"><input class="mg-footnotes" type="checkbox"> 公众号文末保留链接</label><div class="mg-template-controls"><button data-action="save-template" class="mg-text-button">存为新模板</button><button data-action="export-template" class="mg-text-button">导出模板</button><button data-action="delete-template" class="mg-text-button mg-danger">删除</button></div><div class="mg-template-source"></div></section><section class="mg-library"><div class="mg-section-title"><h2>模板库</h2><span class="mg-template-count"></span></div><div class="mg-template-list"></div><div class="mg-library-bottom"><button data-action="learn" class="mg-button mg-learn">＋ 链接学模板</button><button data-action="import" class="mg-text-button">导入模板 JSON</button><input type="file" class="mg-file-input" accept="application/json,.json" hidden></div></section></aside></div>
       <footer class="mg-status" role="status" aria-live="polite">编辑、预览随时切换；宽窗口可左右对照。</footer>`,
     );
@@ -311,8 +316,19 @@ export class Studio {
     );
     bind("export", () => void this.run("正在生成内容包…", () => this.export()));
     bind(
-      "browser-import",
-      () => void this.run("正在打包整篇图文…", () => this.browserPackage()),
+      "publish-browser",
+      () =>
+        void this.run("正在准备整篇稿件与图片…", async () => {
+          const platform = this.settings.platform;
+          if (platform === "x") throw new Error("浏览器发布暂不支持 X。");
+          if (!this.host.publishArticle)
+            throw new Error("请在 Obsidian 中使用最新版墨稿发布。");
+          const article = await this.articleForBrowser(platform);
+          await this.host.publishArticle(article, (message) =>
+            this.tell(message),
+          );
+          this.tell("已打开浏览器。登录后会自动同步稿件，最后由你确认发表。");
+        }),
     );
     this.root
       .querySelectorAll<HTMLElement>("[data-platform]")
@@ -547,6 +563,9 @@ export class Studio {
           ? "导出发布图片"
           : "导出原图";
     this.q(".mg-platform-hint").textContent = PLATFORMS[platform].hint;
+    this.q('[data-action="publish-browser"]').hidden = platform === "x";
+    this.q('[data-action="publish-browser"]').textContent =
+      `发布到${PLATFORMS[platform].name}`;
     this.q('[data-action="copy"]').textContent =
       platform === "x" && this.previewMode === "thread"
         ? "复制整组串文"
@@ -931,31 +950,38 @@ export class Studio {
         }),
     );
   }
-  private async browserPackage() {
-    if (this.settings.platform === "x")
-      throw new Error("浏览器导入预览版支持公众号、小红书长文和知乎专栏。");
-    await this.completeContent();
-    const content = this.bodyContent();
-    const json = JSON.stringify({
+  async articleForBrowser(
+    platform: BridgePlatform,
+    note?: Draft,
+  ): Promise<BrowserArticle> {
+    if (this.destroyed) throw new Error("墨稿窗口已关闭。");
+    const draft = structuredClone(note || this.draft);
+    if (!draft.markdown.trim())
+      throw new Error("请先在 Obsidian 打开笔记，或在墨稿里读取一篇笔记。");
+    const options = structuredClone({
+      ...this.options(),
+      platform,
+      includeTitle: false,
+    });
+    const sources = imageSources(draft);
+    const result = await this.host.resolveImages(draft, true, {
+      assets: { ...this.assets },
+    });
+    const missing = sources.filter(
+      (source) => !isEmbeddedImage(result.assets[source]),
+    );
+    if (missing.length)
+      throw new Error(
+        `还有 ${missing.length} 张图片未载入，请在墨稿中重试。${result.warnings[0] || ""}`,
+      );
+    return {
       format: "mogao-article",
       version: 1,
-      title: this.draft.title,
-      platform: this.settings.platform,
-      html: content.html,
-    });
-    if (new TextEncoder().encode(json).byteLength > 64 * 1024 * 1024)
-      throw new Error("浏览器内容包超过 64 MB，请拆分文章后导出。");
-    const instructions =
-      "在目标平台打开空白长文草稿，点击“墨稿 · 整篇图文导入”浏览器扩展，选择 article-mogao.json，然后点击“导入整篇图文”。包内包含正文和全部图片文件，扩展会尝试通过平台编辑器上传图片并保留原位置。扩展仍为预览版，首次请使用测试草稿；导入后检查图片及自动保存状态。";
-    const path = await this.host.saveFiles(
-      [
-        { name: "article-mogao.json", content: json },
-        { name: "readme.txt", content: instructions },
-      ],
-      `${this.draft.title || "未命名草稿"}-浏览器导入`,
-    );
-    this.tell(`整篇图文包已保存：${path}`);
-    this.deliveryDialog(path, instructions);
+      title: draft.title,
+      platform,
+      html: renderDraft(draft, options, result.assets).html,
+      source: note ? "note" : "studio",
+    };
   }
   private async export() {
     await this.completeContent();

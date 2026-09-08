@@ -1,3 +1,4 @@
+import { prepareDestination } from "./navigation";
 import { EditorSession, findEditor } from "./editor";
 import type { Command, Reply } from "./types";
 
@@ -21,6 +22,13 @@ if (!scope.mogaoImporterInstalled) {
       if (message.op === "cancel") {
         cleanup();
         respond({ ok: true });
+        return;
+      }
+      if (message.op === "prepare") {
+        respond({
+          ok: true,
+          preparation: prepareDestination(document, message.platform),
+        });
         return;
       }
       if (message.op === "probe") {

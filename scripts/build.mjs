@@ -1,9 +1,16 @@
 import { build } from "esbuild";
 import { builtinModules } from "node:module";
 import { readFile } from "node:fs/promises";
+await import("./build-extension.mjs");
+const extensionZip = await readFile(
+  "dist/mogao-browser-extension-0.2.0-preview.zip",
+);
 const license = await readFile("LICENSE", "utf8");
 const notices = await readFile("THIRD_PARTY_NOTICES.md", "utf8");
 await build({
+  define: {
+    MOGAO_EXTENSION_ZIP: JSON.stringify(extensionZip.toString("base64")),
+  },
   entryPoints: ["src/main.ts"],
   bundle: true,
   platform: "node",

@@ -1,4 +1,4 @@
-import { test } from "node:test";
+import { test, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { build } from "esbuild";
 import vm from "node:vm";
@@ -19,6 +19,10 @@ const compiled = await build({
     ...builtinModules.map((m) => `node:${m}`),
   ],
 });
+const livePlugins: { onunload(): void }[] = [];
+afterEach(() => {
+  for (const plugin of livePlugins.splice(0)) plugin.onunload();
+});
 function harness(saved: any = null) {
   class TFile {
     constructor(
@@ -38,6 +42,7 @@ function harness(saved: any = null) {
   ]);
   const folders = new Set<string>();
   const notices: string[] = [];
+  const browserUrls: string[] = [];
   let data = saved;
   let clip: any;
   let enumerations = 0;
@@ -156,6 +161,11 @@ function harness(saved: any = null) {
         ? obsidian
         : name === "electron"
           ? {
+              shell: {
+                openExternal: async (url: string) => {
+                  browserUrls.push(url);
+                },
+              },
               clipboard: {
                 write: (value: any) => {
                   clip = value;
@@ -165,7 +175,21 @@ function harness(saved: any = null) {
                 },
               },
             }
-          : require(name),
+          : name === "node:http"
+            ? {
+                ...require(name),
+                createServer: (...args: any[]) => {
+                  const server = require(name).createServer(...args);
+                  const listen = server.listen.bind(server);
+                  server.listen = (
+                    _port: number,
+                    host: string,
+                    callback: () => void,
+                  ) => listen(0, host, callback);
+                  return server;
+                },
+              }
+            : require(name),
     module,
     exports: module.exports,
     console,
@@ -186,14 +210,17 @@ function harness(saved: any = null) {
     atob,
     btoa,
   });
+  const plugin = new module.exports.default();
+  livePlugins.push(plugin);
   return {
-    plugin: new module.exports.default(),
+    plugin,
     safeFolder: module.exports.safeFolder,
     app,
     files,
     folders,
     note,
     original,
+    browserUrls,
     getData: () => data,
     getClip: () => clip,
     getEnumerations: () => enumerations,
@@ -306,4 +333,34 @@ test("searchable settings definitions preserve export folder validation", async 
   await tab.setControlValue("exportFolder", "导出/内容");
   assert.equal(tab.getControlValue("exportFolder"), "导出/内容");
   assert.equal(h.getData().exportFolder, "导出/内容");
+});
+
+test("compiled host opens one browser handoff with the selected draft and preserves plugin data", async () => {
+  const h = harness({
+    templateId: "ink",
+    customTemplates: [],
+    exportFolder: "导出",
+  });
+  await h.plugin.onload();
+  const before = structuredClone(h.getData());
+  await h.plugin
+    .host()
+    .publishArticle(
+      {
+        format: "mogao-article",
+        version: 1,
+        title: "点击发布",
+        platform: "wechat",
+        source: "studio",
+        html: "<p>正文</p>",
+      },
+      () => {},
+    );
+  assert.equal(h.browserUrls.length, 1);
+  const url = h.browserUrls[0];
+  assert.match(url, /^http:\/\/127\.0\.0\.1:\d+\/publish\/[a-f\d]{64}$/);
+  const page = await (await fetch(url)).text();
+  assert.match(page, /点击发布/);
+  assert.deepEqual(h.getData(), before);
+  assert.equal(h.files.get(h.note.path), h.original);
 });

@@ -17,12 +17,13 @@ function record(value: unknown): value is Record<string, unknown> {
 export function readArticle(
   text: string,
   kind: "json" | "html",
-  platform: Destination,
+  platform: Destination | undefined,
   win: Window & typeof globalThis,
 ): ArticleFile {
   if (new TextEncoder().encode(text).byteLength > MAX_PACKAGE_BYTES)
     throw new Error("内容包超过 64 MB，请拆分文章。");
   if (kind === "html") {
+    if (!platform) throw new Error("HTML 文件缺少目标平台。");
     // Compatibility with 0.1.4 article.html. Parse inertly; never mount the document.
     const document = new win.DOMParser().parseFromString(text, "text/html");
     const article =
@@ -53,9 +54,7 @@ export function readArticle(
     typeof value.platform !== "string" ||
     !destinations.has(value.platform)
   )
-    throw new Error(
-      "这不是墨稿整篇图文包，请选择 article-mogao.json 或旧版 article.html。",
-    );
+    throw new Error("稿件格式不正确，请回到墨稿重新发布。");
   return value as unknown as ArticleFile;
 }
 
