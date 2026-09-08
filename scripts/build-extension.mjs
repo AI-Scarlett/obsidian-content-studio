@@ -7,6 +7,7 @@ const manifest = JSON.parse(
   await readFile("browser-extension/manifest.json", "utf8"),
 );
 await mkdir(folder, { recursive: true });
+await mkdir(`${folder}/licenses`, { recursive: true });
 await build({
   entryPoints: [
     "browser-extension/src/background.ts",
@@ -30,6 +31,11 @@ for (const [source, name] of [
 ])
   await copyFile(source, `${folder}/${name}`);
 await writeFile(`${folder}/sample-article.html`, sampleArticle());
+for (const name of ["xposter-MIT.txt", "MultiPost-Apache-2.0.txt"])
+  await copyFile(
+    `browser-extension/licenses/${name}`,
+    `${folder}/licenses/${name}`,
+  );
 const files = [
   "sample-article.html",
   "manifest.json",
@@ -42,6 +48,8 @@ const files = [
   "README.md",
   "LICENSE",
   "THIRD_PARTY_NOTICES.md",
+  "licenses/xposter-MIT.txt",
+  "licenses/MultiPost-Apache-2.0.txt",
 ];
 const archive = {};
 for (const name of files)

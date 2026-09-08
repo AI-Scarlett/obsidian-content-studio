@@ -86,3 +86,29 @@ test("existing editor content is reported and never changed by preparation", () 
   assert.equal(dom.window.document.body.innerHTML, before);
   dom.window.close();
 });
+
+test("X creates only a new Article and leaves login and final publication controls alone", () => {
+  const dom = page(
+    "<button>Create</button><button>Publish</button>",
+    destinations.x,
+  );
+  const clicks: string[] = [];
+  dom.window.document.addEventListener("click", (e) =>
+    clicks.push((e.target as HTMLElement).textContent!),
+  );
+  prepareDestination(dom.window.document, "x");
+  prepareDestination(dom.window.document, "x");
+  assert.deepEqual(clicks, ["Create"]);
+  dom.window.close();
+  for (const url of [
+    "https://x.com/i/flow/login",
+    "https://zhuanlan.zhihu.com/signin",
+  ]) {
+    const login = page("<button>Create</button>", url);
+    const expected = url.includes("x.com") ? "x" : "zhihu";
+    const result = prepareDestination(login.window.document, expected);
+    assert.equal(result.navigate, undefined);
+    assert.match(result.status!, /登录/);
+    login.window.close();
+  }
+});

@@ -4,6 +4,7 @@ export const destinations: Record<Destination, string> = {
   xiaohongshu:
     "https://creator.xiaohongshu.com/publish/publish?source=official&from=menu&target=article",
   zhihu: "https://zhuanlan.zhihu.com/write",
+  x: "https://x.com/compose/articles",
 };
 function localJobUrl(raw: unknown, recovery: boolean): URL | undefined {
   if (typeof raw !== "string") return;

@@ -20,7 +20,7 @@ const extensionVersion =
     : "0.2.1";
 const extensionArchive =
   typeof MOGAO_EXTENSION_ZIP === "string" ? MOGAO_EXTENSION_ZIP : "";
-export type BridgePlatform = "wechat" | "xiaohongshu" | "zhihu";
+export type BridgePlatform = "wechat" | "xiaohongshu" | "zhihu" | "x";
 export interface BrowserArticle {
   format: "mogao-article";
   version: 1;
@@ -50,6 +50,7 @@ const names = {
   wechat: "微信公众号",
   xiaohongshu: "小红书长文",
   zhihu: "知乎专栏",
+  x: "X 长文",
 };
 /** Each click shares one frozen article through an expiring capability URL on loopback. */
 export class BrowserBridge {
@@ -178,7 +179,7 @@ export class BrowserBridge {
       res.setHeader("Access-Control-Allow-Methods", "GET, POST");
       res.setHeader(
         "Access-Control-Allow-Headers",
-        "Content-Type, X-Mogao-Extension, X-Mogao-Run",
+        "Content-Type, X-Mogao-Extension, X-Mogao-Run, X-Mogao-Protocol",
       );
       this.json(res, 200, {});
       return;
@@ -246,6 +247,13 @@ export class BrowserBridge {
     const runId = req.headers["x-mogao-run"];
     if (typeof runId !== "string" || !/^[a-f\d-]{36}$/.test(runId)) {
       this.json(res, 403, { error: "缺少本次发布窗口标识。" });
+      return;
+    }
+    if (req.headers["x-mogao-protocol"] !== "3") {
+      this.json(res, 426, {
+        error:
+          "浏览器仍在运行旧版墨稿扩展。文件已更新时，请在扩展管理页重新加载，确认版本为 0.3.0 或更新，再从墨稿发布。旧版不会接收这篇稿件。",
+      });
       return;
     }
     if (job.runId && job.runId !== runId) {

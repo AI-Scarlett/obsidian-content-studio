@@ -4,7 +4,7 @@ English | [简体中文](README.zh-CN.md)
 
 Format Obsidian notes for WeChat Official Accounts, Zhihu, Xiaohongshu and X. Choose one of six built-in templates, adjust typography and colors, or learn reusable styles from an article URL. The interface is currently in Simplified Chinese.
 
-Desktop only. This branch: 0.1.6 preview build. Requires Obsidian 1.8.7 or later; earlier native validation used 1.13.7. Version 0.1.4 has automated host and DOM regression coverage. Formatting preserves your source text and runs locally. No AI account, API key or automatic publishing is required.
+Desktop only. This branch: 0.1.7 preview build with browser assistant 0.3.0. Requires Obsidian 1.8.7 or later; earlier native validation used 1.13.7. Formatting preserves your source text and runs locally. No AI account, API key or automatic publishing is required.
 
 ## Features
 
@@ -33,9 +33,9 @@ For updates, replace only `main.js`, `manifest.json` and `styles.css`; keep `dat
 1. Select a note with **选择笔记**, read the active note with **读取当前笔记**, or paste Markdown in the studio.
 2. Write in the full-size editor; switch to **预览** for preview or **对照** for a side-by-side view on wide panes. Templates and styling live in the **模板与样式** drawer.
 3. Wait for the image counter. Use **重新载入图片** to retry failures.
-4. For WeChat, Xiaohongshu long-form or Zhihu, click **发布到平台** in Mogao. The companion browser extension receives the current draft and images, opens the destination, waits for login if necessary, then synchronizes the body, inline images and separate title. There is no per-article file selection or import step.
+4. For WeChat, Xiaohongshu long-form, Zhihu or X Articles, click **发布到平台** in Mogao. The companion browser extension receives the current draft and images, opens the destination, waits for login if necessary, then uses its platform adapter to synchronize the separate title, structured body and inline images. There is no per-article file selection or import step.
 5. If the extension is missing, the browser opens installation onboarding with the bundled preview extension download. After installation, subsequent articles start directly from Mogao.
-6. Review the platform draft and its save status, then publish manually. Full extension acceptance on real platforms remains pending. Title/body copying and file exports remain available as secondary tools. X retains article/thread copying.
+6. Review the platform draft and its save status, then publish manually. Full extension acceptance on real platforms remains pending. Title/body copying and file exports remain available as secondary tools. X Articles requires the corresponding account access; ordinary X threads retain copying.
 
 Each export creates a new folder under `墨稿导出/` by default, configurable in plugin settings. Packages include `article.html`, `article.md`, `title.txt`, `caption.txt`, `template.json`, `manifest.json`, and numbered image files. Markdown references are rewritten to the image files. HTML embeds the image bytes. Xiaohongshu exports additional PNG cards; X exports separate thread text files.
 
@@ -77,10 +77,11 @@ See [Data and network details](docs/privacy.md).
 ```sh
 npm ci
 npm run verify
+npm run verify:extension
 npm run package
 ```
 
-`npm run verify` includes the official Obsidian ESLint recommended rules (zero warnings required), CSS lint, type checks, and 80 regression tests. CSS is also checked against a conservative Chrome 120 compatibility profile. The development browser prototype was removed from the plugin source in 0.1.2; run the workbench inside Obsidian to test actual Vault behavior.
+`npm run verify` includes the official Obsidian ESLint recommended rules (zero warnings required), CSS lint, type checks, and 95 regression tests. `npm run verify:extension` adds 41 browser delivery tests, including real Tiptap/Draft.js models and offline WeChat contracts; these are not live platform acceptance. CSS is also checked against a conservative Chrome 120 compatibility profile. The development browser prototype was removed from the plugin source in 0.1.2; run the workbench inside Obsidian to test actual Vault behavior.
 
 Releases are built from version tags by [GitHub Actions](https://github.com/AI-Scarlett/obsidian-content-studio/actions/workflows/release.yml). Only the three supported plugin files are attached to a Release; optional ZIP/checksum packages are available as Actions artifacts or via `npm run package`. The workflow generates GitHub build-provenance attestations for all three release files. After downloading them, verify provenance with:
 
@@ -101,3 +102,5 @@ MIT © 2026 AI-Scarlett. See [LICENSE](LICENSE) and [third-party notices](THIRD_
 ## Browser publishing assistant (preview)
 
 Start in Mogao with **发布到平台**. The extension automatically opens the selected platform, waits for login, and synchronizes the current article with inline image uploads and separate title. Missing extensions lead to installation onboarding with a bundled download. [Installation, permissions and validation limits](browser-extension/README.md). Full real-platform extension acceptance remains pending.
+
+The 0.1.7 preview bundles browser assistant 0.3.0, with platform-specific media and draft adapters. Existing unpacked extension installations must be reloaded once after updating their files. See [the release notes](docs/releases/0.1.7.md) and [browser assistant documentation](browser-extension/README.md) for current validation boundaries.

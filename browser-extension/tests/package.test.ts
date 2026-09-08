@@ -74,6 +74,16 @@ test("local/remote paths, malformed packages and image limits fail before import
   );
 });
 test("editor hosts and uploaded image CDNs are matched on boundaries", () => {
+  assert.equal(
+    platformImage("https://pic-private.zhihu.com/image", "zhihu"),
+    true,
+  );
+  assert.equal(
+    platformImage("https://pic-private.zhihu.com.evil.example/image", "zhihu"),
+    false,
+  );
+  assert.equal(platformImage("https://pbs.twimg.com/media/image", "x"), true);
+  assert.equal(platformFor("x.com"), "x");
   assert.equal(platformFor("creator.xiaohongshu.com"), "xiaohongshu");
   assert.equal(platformFor("creator.xiaohongshu.com.evil.example"), undefined);
   assert.equal(

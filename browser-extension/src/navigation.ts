@@ -14,9 +14,42 @@ export function prepareDestination(
 ): Preparation {
   if (platformFor(doc.location.hostname) !== expected)
     return { status: "请在平台页面完成登录，登录后自动继续。" };
+  if (
+    /(?:^|\/)(?:signin|login|signup)(?:\/|$)|^\/account\/access/.test(
+      doc.location.pathname,
+    )
+  )
+    return { status: "请在平台页面完成登录，登录后自动继续。" };
   const target = findEditor(doc);
   if (target) return { probe: target.probe };
   const visible = (el: HTMLElement) => el.getClientRects().length > 0;
+  if (expected === "x") {
+    if (!doc.location.pathname.startsWith("/compose/articles"))
+      return { navigate: destinations.x };
+    const create = [
+      ...doc.querySelectorAll<HTMLElement>('button,[role="button"],a[href]'),
+    ].find(
+      (el) =>
+        visible(el) &&
+        /^(Create|Create article|Write an article|撰写文章|创建文章|新建文章|创建)$/i.test(
+          (
+            el.textContent ||
+            el.getAttribute("aria-label") ||
+            el.getAttribute("title") ||
+            ""
+          ).trim(),
+        ),
+    );
+    if (create && !created.has(doc)) {
+      created.add(doc);
+      create.click();
+      return { status: "正在创建 X Articles 长文草稿…" };
+    }
+    return {
+      status:
+        "正在等待 X 长文编辑器。请完成登录；若平台提示订阅或没有 Articles 权限，需先在 X 开通相应功能。",
+    };
+  }
   if (expected === "xiaohongshu") {
     // Long-form landing page uses this exact visible action, verified in Chrome.
     const create = [

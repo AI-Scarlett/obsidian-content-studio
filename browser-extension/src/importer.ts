@@ -9,12 +9,14 @@ const runId = crypto.randomUUID();
 const headers = {
   "X-Mogao-Extension": chrome.runtime.id,
   "X-Mogao-Run": runId,
+  "X-Mogao-Protocol": "3",
   "Content-Type": "application/json",
 };
 const names = {
   wechat: "微信公众号",
   xiaohongshu: "小红书长文",
   zhihu: "知乎专栏",
+  x: "X 长文",
 };
 let tabId: number | undefined;
 let target: { frameId: number; probe: Probe } | undefined;
@@ -45,11 +47,27 @@ async function report(text: string, done = false) {
   });
   await reporting;
 }
+async function pageCommand(frameId: number, message: Command): Promise<Reply> {
+  const results = await chrome.scripting.executeScript({
+    target: { tabId: tabId!, frameIds: [frameId] },
+    world: "MAIN",
+    func: async (owner: string, command: Command): Promise<Reply> => {
+      const runtime = (
+        globalThis as typeof globalThis & {
+          __mogaoArticleV3?: import("./content").MainRuntime;
+        }
+      ).__mogaoArticleV3;
+      if (runtime?.version !== 3)
+        return { ok: false, error: "平台适配器未加载，请更新墨稿扩展。" };
+      return runtime.dispatch(owner, command);
+    },
+    args: [runId, message],
+  });
+  return results[0]?.result || { ok: false, error: "平台没有响应。" };
+}
 async function command(message: Command): Promise<Reply> {
   if (tabId === undefined || !target) throw new Error("平台编辑器尚未就绪。");
-  const reply: Reply = await chrome.tabs.sendMessage(tabId, message, {
-    frameId: target.frameId,
-  });
+  const reply = await pageCommand(target.frameId, message);
   if (!reply?.ok)
     throw new Error(reply?.error || "平台编辑器已关闭或没有响应。");
   return reply;
@@ -70,19 +88,20 @@ async function waitForEditor(plan: ImportPlan) {
         frames = await chrome.scripting.executeScript({
           target: { tabId: tabId!, allFrames: true },
           files: ["content.js"],
+          world: "MAIN",
         });
       } catch {
-        /* login/navigation can replace the document between calls */
+        await report(
+          "正在等待平台页面授权或加载完成。若持续停留，请在扩展的网站访问权限中允许此平台，然后重新加载扩展。",
+        );
+        await pause(1000);
+        continue;
       }
       check();
       const probes = await Promise.all(
         frames.map(async (frame) => {
           try {
-            const reply: Reply = await chrome.tabs.sendMessage(
-              tabId!,
-              { op: "probe" },
-              { frameId: frame.frameId },
-            );
+            const reply = await pageCommand(frame.frameId, { op: "probe" });
             return reply.probe
               ? { frameId: frame.frameId, probe: reply.probe }
               : undefined;
@@ -111,11 +130,10 @@ async function waitForEditor(plan: ImportPlan) {
       }
       let reply: Reply | undefined;
       try {
-        reply = await chrome.tabs.sendMessage(
-          tabId!,
-          { op: "prepare", platform: plan.platform },
-          { frameId: 0 },
-        );
+        reply = await pageCommand(0, {
+          op: "prepare",
+          platform: plan.platform,
+        });
       } catch {
         /* document may still be changing */
       }
@@ -201,6 +219,25 @@ async function run() {
     }
     check();
     const result = await command({ op: "finish" });
+    if (result.progress?.navigate) {
+      const next = new URL(result.progress.navigate);
+      const allowed =
+        plan.platform === "wechat" &&
+        next.origin === "https://mp.weixin.qq.com" &&
+        next.pathname === "/cgi-bin/appmsg" &&
+        next.searchParams.get("action") === "edit" &&
+        /^\d+$/.test(next.searchParams.get("appmsgid") || "");
+      if (!allowed)
+        throw new Error("平台返回了无法识别的草稿地址，已停止跳转。");
+      // The draft already exists: navigation failure must not cause another create request.
+      try {
+        await chrome.tabs.update(tabId!, { url: next.href, active: true });
+      } catch {
+        throw new Error(
+          "公众号草稿已创建，但编辑页未能打开。请到公众号草稿箱查看，不要重复发送。",
+        );
+      }
+    }
     completed = true;
     await report(
       result.progress?.text || "图文同步完成，请在平台检查后自行发表。",

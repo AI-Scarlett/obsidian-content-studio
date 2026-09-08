@@ -452,3 +452,25 @@ test("reading a newly opened Obsidian note retains the existing studio draft and
     h.root.remove();
   }
 });
+
+test("X has a working Articles action that sends formatted body and images, separately from thread copy", async () => {
+  const h = harness();
+  try {
+    await h.studio.openDraft(draft());
+    h.root.querySelector<HTMLButtonElement>('[data-platform="x"]')!.click();
+    const button = h.root.querySelector<HTMLButtonElement>(
+      '[data-action="publish-browser"]',
+    )!;
+    assert.equal(button.hidden, false);
+    assert.equal(button.textContent, "发布到 X 长文");
+    await click(h, "publish-browser");
+    assert.equal(h.deliveries.length, 1);
+    assert.equal(h.deliveries[0].platform, "x");
+    assert.equal((h.deliveries[0].html.match(/data:image/g) || []).length, 2);
+    assert.ok(!h.deliveries[0].html.includes("<h1"));
+    assert.equal(h.packages.length, 0);
+  } finally {
+    h.studio.destroy();
+    h.root.remove();
+  }
+});

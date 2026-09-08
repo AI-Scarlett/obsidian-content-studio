@@ -22,6 +22,7 @@ async function fixture() {
   const headers = {
     "X-Mogao-Extension": extensionId,
     "X-Mogao-Run": randomUUID(),
+    "X-Mogao-Protocol": "3",
     Origin: `chrome-extension://${extensionId}`,
     "Content-Type": "application/json",
   };
@@ -192,5 +193,25 @@ test("multiple vaults use separate ports and cannot consume each other's deliver
   } finally {
     a.bridge.stop();
     b.bridge.stop();
+  }
+});
+
+test("old extension cannot claim a new adapter job; the updated extension can resume it", async () => {
+  const f = await fixture();
+  try {
+    const { "X-Mogao-Protocol": _protocol, ...old } = f.headers;
+    const response = await fetch(f.endpoint, { headers: old });
+    assert.equal(response.status, 426);
+    assert.match((await response.json()).error, /0\.3\.0/);
+    assert.equal(
+      (
+        await fetch(f.endpoint, {
+          headers: { ...f.headers, "X-Mogao-Run": randomUUID() },
+        })
+      ).status,
+      200,
+    );
+  } finally {
+    f.bridge.stop();
   }
 });

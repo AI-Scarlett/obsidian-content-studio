@@ -1,14 +1,20 @@
 import { prepareDestination } from "./navigation";
 import { EditorSession, findEditor } from "./editor";
+import { WechatSession, wechatProbe } from "./platforms/wechat";
 import type { Command, Reply } from "./types";
 
-// ActiveTab injection may happen repeatedly; install one listener in this isolated world.
+export interface MainRuntime {
+  version: 3;
+  dispatch(owner: string, message: Command): Promise<Reply>;
+}
 const scope = globalThis as typeof globalThis & {
-  mogaoImporterInstalled?: boolean;
+  __mogaoArticleV3?: MainRuntime;
 };
-if (!scope.mogaoImporterInstalled) {
-  scope.mogaoImporterInstalled = true;
-  let session: EditorSession | undefined;
+// Injected explicitly into MAIN only after a user sends a draft from Obsidian.
+// No page message listener, remote code, cookie export or publication endpoint.
+if (!scope.__mogaoArticleV3) {
+  let session: EditorSession | WechatSession | undefined;
+  let owner: string | undefined;
   let busy = false;
   let timer: number | undefined;
   const cleanup = () => {
@@ -16,66 +22,82 @@ if (!scope.mogaoImporterInstalled) {
     session = undefined;
     window.clearTimeout(timer);
   };
-  chrome.runtime.onMessage.addListener(
-    (message: Command, sender, respond: (reply: Reply) => void) => {
-      if (sender.id !== chrome.runtime.id) return;
-      if (message.op === "cancel") {
-        cleanup();
-        respond({ ok: true });
-        return;
-      }
-      if (message.op === "prepare") {
-        respond({
+  scope.__mogaoArticleV3 = {
+    version: 3,
+    async dispatch(requestOwner, message) {
+      if (!/^[a-f\d-]{36}$/.test(requestOwner))
+        return { ok: false, error: "发布任务标识不正确。" };
+      if (message.op === "probe")
+        return {
+          ok: true,
+          probe: wechatProbe(document) || findEditor(document)?.probe,
+        };
+      if (message.op === "prepare")
+        return {
           ok: true,
           preparation: prepareDestination(document, message.platform),
-        });
-        return;
+        };
+      if (owner && owner !== requestOwner)
+        return {
+          ok: false,
+          error: "此页已由另一篇墨稿任务使用，当前草稿保留。",
+        };
+      if (message.op === "cancel") {
+        cleanup();
+        return { ok: true };
       }
-      if (message.op === "probe") {
-        respond({ ok: true, probe: findEditor(document)?.probe });
-        return;
-      }
-      if (busy) {
-        respond({ ok: false, error: "导入正在进行，请勿重复操作。" });
-        return;
-      }
-      busy = true;
-      window.clearTimeout(timer);
-      void (async () => {
+      if (busy) return { ok: false, error: "同步正在进行，请勿重复操作。" };
+      try {
+        busy = true;
+        window.clearTimeout(timer);
         if (message.op === "begin") {
-          if (session) throw new Error("当前页面已有导入任务，请先停止。");
-          const target = findEditor(document);
-          if (!target) throw new Error("未识别到兼容的长文编辑器。");
-          session = new EditorSession(target.root, target.platform);
-          return session.begin(message.plan, message.markers);
-        }
-        if (!session) throw new Error("导入会话不存在，请重新检查编辑器。");
-        if (message.op === "image") return session.image(message.image);
-        if (message.op === "finish") {
-          const text = await session.finish();
-          cleanup();
-          return text;
-        }
-        throw new Error("未知导入指令。");
-      })()
-        .then((text) =>
-          respond({
+          if (owner)
+            throw new Error("本页的同步任务已开始或结束，请勿重复写入。");
+          owner = requestOwner;
+          const probe = wechatProbe(document);
+          if (message.plan.platform === "wechat" && probe)
+            session = new WechatSession(document);
+          else {
+            const target = findEditor(document);
+            if (!target) throw new Error("未识别到兼容的长文编辑器。");
+            session = new EditorSession(target.root, target.platform);
+          }
+          return {
             ok: true,
-            progress: { text, done: message.op === "finish" },
-          }),
-        )
-        .catch((error: unknown) => {
+            progress: {
+              text: await session.begin(message.plan, message.markers),
+              done: false,
+            },
+          };
+        }
+        if (!session) throw new Error("同步会话已停止，请检查平台草稿。");
+        if (message.op === "image")
+          return {
+            ok: true,
+            progress: { text: await session.image(message.image), done: false },
+          };
+        if (message.op === "finish") {
+          const result = await session.finish();
           cleanup();
-          respond({
-            ok: false,
-            error: error instanceof Error ? error.message : String(error),
-          });
-        })
-        .finally(() => {
-          busy = false;
-          if (session) timer = window.setTimeout(cleanup, 120000);
-        });
-      return true;
+          return {
+            ok: true,
+            progress:
+              typeof result === "string"
+                ? { text: result, done: true }
+                : { ...result, done: true },
+          };
+        }
+        throw new Error("未知同步指令。");
+      } catch (error) {
+        cleanup();
+        return {
+          ok: false,
+          error: error instanceof Error ? error.message : "平台同步失败。",
+        };
+      } finally {
+        busy = false;
+        if (session) timer = window.setTimeout(cleanup, 180000);
+      }
     },
-  );
+  };
 }

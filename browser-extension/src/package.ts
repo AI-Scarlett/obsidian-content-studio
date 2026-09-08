@@ -10,7 +10,7 @@ export const MAX_PACKAGE_BYTES = 64 * 1024 * 1024;
 export const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 export const normalizeText = (text: string) =>
   text.replace(/[\s\u200b\ufeff]/g, "");
-const destinations = new Set(["wechat", "xiaohongshu", "zhihu"]);
+const destinations = new Set(["wechat", "xiaohongshu", "zhihu", "x"]);
 function record(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value);
 }
@@ -170,6 +170,8 @@ export function prepareArticle(
       name: `mogao-${String(index + 1).padStart(3, "0")}.${match[2] === "jpeg" ? "jpg" : match[2]}`,
       mime: match[1],
       base64: match[3],
+      alt: img.getAttribute("alt") || "",
+      style: img.getAttribute("style") || "",
     });
   }
   const text = root.textContent || "";

@@ -1,20 +1,25 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { JSDOM } from "jsdom";
-import { Editor, Extension } from "@tiptap/core";
+import { Editor } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
-import { Plugin } from "@tiptap/pm/state";
 import { EditorSession, findEditor } from "../src/editor";
 import { prepareArticle } from "../src/package";
 const png =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aD1sAAAAASUVORK5CYII=";
 
 function fixture(
-  options: { upload?: boolean; content?: string; blob?: boolean } = {},
+  options: {
+    upload?: boolean;
+    content?: string;
+    blob?: boolean;
+    duplicate?: boolean;
+    sameUrl?: boolean;
+  } = {},
 ) {
   const dom = new JSDOM(
-    '<textarea placeholder="输入标题"></textarea><div id="editor"></div>',
+    '<textarea placeholder="输入标题"></textarea><button aria-label="图片">图片</button><div id="editor"></div>',
     {
       url: "https://creator.xiaohongshu.com/publish/publish?target=article",
       pretendToBeVisual: true,
@@ -107,54 +112,56 @@ function fixture(
       this.clipboardData = init.clipboardData;
     }
   };
-  let uploads = 0;
-  const uploader = Extension.create({
-    name: "fixtureUploader",
-    addProseMirrorPlugins() {
-      return [
-        new Plugin({
-          props: {
-            handlePaste(view, event) {
-              const file = event.clipboardData?.files[0];
-              if (!file) return false;
-              if (options.upload === false) return true;
-              assert.equal(file.type, "image/png");
-              assert.ok(file.size > 50);
-              uploads++;
-              // Real ProseMirror transactions simulate the platform upload completion; no remote requests.
-              view.dispatch(
-                view.state.tr.replaceSelectionWith(
-                  view.state.schema.nodes.image.create({
-                    src: `blob:test-${uploads}`,
-                  }),
-                ),
-              );
-              if (!options.blob)
-                win.setTimeout(() => {
-                  view.state.doc.descendants((node, pos) => {
-                    if (
-                      node.type.name === "image" &&
-                      node.attrs.src === `blob:test-${uploads}`
-                    )
-                      view.dispatch(
-                        view.state.tr.setNodeMarkup(pos, undefined, {
-                          ...node.attrs,
-                          src: `https://sns-img.xhscdn.com/test-${uploads}.png`,
-                        }),
-                      );
-                  });
-                }, 30);
-              return true;
-            },
-          },
-        }),
-      ];
+  Object.defineProperty(win.HTMLInputElement.prototype, "files", {
+    configurable: true,
+    get() {
+      return (this as any)._files;
+    },
+    set(files) {
+      (this as any)._files = files;
     },
   });
+  let uploads = 0;
   const editor = new Editor({
     element: win.document.getElementById("editor")!,
-    extensions: [StarterKit, Image, uploader],
+    extensions: [StarterKit, Image],
     content: options.content || "",
+  });
+  win.document.querySelector("button")!.addEventListener("click", () => {
+    // Simulate the site's native toolbar uploader, including a detached input.
+    const input = win.document.createElement("input");
+    input.type = "file";
+    input.click();
+    input.onchange = () => {
+      const file = input.files?.[0];
+      assert.ok(file && file.size > 50);
+      assert.equal(file.type, "image/png");
+      if (options.upload === false) return;
+      uploads++;
+      const id = uploads;
+      // Deliberately append at the wrong place: the driver must relocate the model node.
+      const count = options.duplicate ? 2 : 1;
+      for (let i = 0; i < count; i++)
+        editor.commands.insertContentAt(editor.state.doc.content.size, {
+          type: "image",
+          attrs: { src: `blob:test-${id}-${i}` },
+        });
+      if (!options.blob)
+        win.setTimeout(() => {
+          editor.state.doc.descendants((node, pos) => {
+            if (
+              node.type.name === "image" &&
+              String(node.attrs.src).startsWith(`blob:test-${id}-`)
+            )
+              editor.view.dispatch(
+                editor.state.tr.setNodeMarkup(pos, undefined, {
+                  ...node.attrs,
+                  src: `https://sns-img.xhscdn.com/test-${options.sameUrl ? 1 : id}.png`,
+                }),
+              );
+          });
+        }, 30);
+    };
   });
   // jsdom does not implement browser selectionchange scheduling consistently.
   win.document.addEventListener("selectionchange", () => {});
@@ -206,7 +213,9 @@ test("real Tiptap document receives whole body, file uploads in place and separa
     const model = f.editor.getJSON();
     assert.equal(JSON.stringify(model).includes("MOGAOIMAGE"), false);
     assert.equal(f.uploads(), 2);
-    const nodes = model.content!;
+    const nodes = model.content!.filter(
+      (node) => node.type !== "paragraph" || node.content?.length,
+    );
     assert.deepEqual(
       nodes.map((node) => node.type),
       ["heading", "paragraph", "image", "paragraph", "image", "paragraph"],
@@ -240,14 +249,17 @@ test("existing drafts are rejected without mutating editor model", async () => {
     f.close();
   }
 });
-test("ignored file paste and unresolved blob uploads stop instead of claiming success", async () => {
+test("ignored native uploads and unresolved blob uploads stop instead of claiming success", async () => {
   for (const options of [{ upload: false }, { blob: true }]) {
     const f = fixture(options);
     try {
       await f.begin();
       await assert.rejects(f.session.image(f.plan.images[0]), /未在/);
       await assert.rejects(f.session.finish(), /还没有全部/);
-      assert.equal(f.win.document.querySelector("textarea")!.value, "");
+      assert.equal(
+        f.win.document.querySelector("textarea")!.value,
+        "整篇图文测试",
+      );
     } finally {
       f.close();
     }
@@ -288,8 +300,35 @@ test("an editor that reorders uploaded images fails final validation", async () 
       imageNodes[0].attrs,
     );
     f.editor.view.dispatch(transaction);
-    await assert.rejects(f.session.finish(), /顺序不一致/);
-    assert.equal(f.win.document.querySelector("textarea")!.value, "");
+    await assert.rejects(f.session.finish(), /顺序/);
+    assert.equal(
+      f.win.document.querySelector("textarea")!.value,
+      "整篇图文测试",
+    );
+  } finally {
+    f.close();
+  }
+});
+
+test("duplicate native uploads stop before moving images or claiming success", async () => {
+  const f = fixture({ duplicate: true });
+  try {
+    await f.begin();
+    await assert.rejects(f.session.image(f.plan.images[0]), /多余图片/);
+  } finally {
+    f.close();
+  }
+});
+test("repeated image URL retains two distinct original positions", async () => {
+  const f = fixture({ sameUrl: true });
+  try {
+    await f.begin();
+    for (const img of f.plan.images) await f.session.image(img);
+    assert.match(await f.session.finish(), /2 张平台图片/);
+    assert.equal(
+      f.editor.getJSON().content!.filter((n) => n.type === "image").length,
+      2,
+    );
   } finally {
     f.close();
   }

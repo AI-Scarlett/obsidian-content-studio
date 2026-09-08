@@ -1,4 +1,4 @@
-export type Destination = "wechat" | "xiaohongshu" | "zhihu";
+export type Destination = "wechat" | "xiaohongshu" | "zhihu" | "x";
 export interface ArticleFile {
   format: "mogao-article";
   version: 1;
@@ -11,6 +11,8 @@ export interface InlineImage {
   name: string;
   mime: string;
   base64: string;
+  alt?: string;
+  style?: string;
 }
 export interface ImportPlan {
   title: string;
@@ -29,6 +31,7 @@ export interface Progress {
   text: string;
   done: boolean;
   error?: string;
+  navigate?: string;
 }
 export type Command =
   | { op: "probe" }
@@ -43,4 +46,12 @@ export interface Reply {
   probe?: Probe;
   progress?: Progress;
   preparation?: { probe?: Probe; navigate?: string; status?: string };
+}
+
+export interface EditorDriver {
+  cancel?(): void;
+  ready?(): boolean;
+  write(html: string, markers: string[]): Promise<void>;
+  upload(image: InlineImage): Promise<void>;
+  settle(image: InlineImage, candidate: HTMLImageElement): Promise<void>;
 }

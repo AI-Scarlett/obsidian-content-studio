@@ -320,7 +320,6 @@ export class Studio {
       () =>
         void this.run("正在准备整篇稿件与图片…", async () => {
           const platform = this.settings.platform;
-          if (platform === "x") throw new Error("浏览器发布暂不支持 X。");
           if (!this.host.publishArticle)
             throw new Error("请在 Obsidian 中使用最新版墨稿发布。");
           const article = await this.articleForBrowser(platform);
@@ -563,9 +562,9 @@ export class Studio {
           ? "导出发布图片"
           : "导出原图";
     this.q(".mg-platform-hint").textContent = PLATFORMS[platform].hint;
-    this.q('[data-action="publish-browser"]').hidden = platform === "x";
+    this.q('[data-action="publish-browser"]').hidden = false;
     this.q('[data-action="publish-browser"]').textContent =
-      `发布到${PLATFORMS[platform].name}`;
+      platform === "x" ? "发布到 X 长文" : `发布到${PLATFORMS[platform].name}`;
     this.q('[data-action="copy"]').textContent =
       platform === "x" && this.previewMode === "thread"
         ? "复制整组串文"

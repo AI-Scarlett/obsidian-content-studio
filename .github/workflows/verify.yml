@@ -1,7 +1,7 @@
 name: Verify plugin
 on:
   push:
-    branches: [main]
+    branches: [main, feat/browser-article-import-preview]
   pull_request:
 permissions:
   contents: read
