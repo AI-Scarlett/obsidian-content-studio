@@ -12,6 +12,7 @@ const compiled = await build({
   format: "cjs",
   target: "es2022",
   write: false,
+  alias: { cheerio: "cheerio/slim" },
   external: [
     "obsidian",
     "electron",
@@ -227,6 +228,7 @@ function harness(saved: any = null) {
     module,
     exports: module.exports,
     console,
+    process,
     setTimeout,
     clearTimeout,
     window: { setTimeout, clearTimeout, navigator, ClipboardItem },

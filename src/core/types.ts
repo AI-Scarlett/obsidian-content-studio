@@ -15,6 +15,13 @@ export type Role =
   | "hr"
   | "figcaption";
 export type Styles = Record<string, string>;
+/** A bounded, text-free heading skeleton. It never stores source HTML. */
+export interface HeadingComponent {
+  styles: Styles;
+  slot?: "content" | "number";
+  numberWidth?: number;
+  children?: HeadingComponent[];
+}
 export interface Template {
   version: 1;
   id: string;
@@ -34,6 +41,7 @@ export interface Template {
   radius: number;
   styleMode?: "reference";
   roles?: Partial<Record<Role, Styles>>;
+  components?: Partial<Record<"h2" | "h3", HeadingComponent>>;
   source?: {
     url: string;
     importedAt: string;

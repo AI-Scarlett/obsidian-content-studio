@@ -5,6 +5,7 @@ import twitter from "twitter-text";
 import type { Draft, RenderOptions, Rendered, Styles } from "./types";
 import { safeColor } from "./templates";
 import { isEmbeddedImage } from "./images";
+import { applyHeadingComponent } from "./heading-component";
 
 const markdown = new MarkdownIt({ html: false, linkify: true, breaks: false });
 export const escapeHtml = (s: string): string =>
@@ -19,6 +20,39 @@ export const styleText = (s: Styles): string =>
   Object.entries(s)
     .map(([k, v]) => `${k}:${v}`)
     .join(";");
+
+function inlineTypography(article: HTMLElement) {
+  const initial: Styles = {
+    color: "#333333",
+    "font-size": "16px",
+    "font-family": "sans-serif",
+    "font-weight": "400",
+    "font-style": "normal",
+    "line-height": "1.75",
+    "letter-spacing": "normal",
+    "text-align": "left",
+    "text-indent": "0",
+  };
+  function visit(el: HTMLElement, inherited: Styles) {
+    const resolved = { ...inherited };
+    for (const key of Object.keys(initial)) {
+      const own = el.style.getPropertyValue(key);
+      if (own && own !== "inherit" && own !== "unset") resolved[key] = own;
+    }
+    if (/^[\d.]+(?:em|%)$/.test(resolved["font-size"])) {
+      const relative = resolved["font-size"];
+      resolved["font-size"] =
+        `${(Number.parseFloat(relative) * Number.parseFloat(inherited["font-size"])) / (relative.endsWith("%") ? 100 : 1)}px`;
+    }
+    if (el.matches("em") && !el.style.fontStyle)
+      resolved["font-style"] = "italic";
+    el.setCssProps(resolved);
+    for (const child of el.children) {
+      if (child.instanceOf(HTMLElement)) visit(child, resolved);
+    }
+  }
+  visit(article, initial);
+}
 export function draftFromNote(raw: string, path: string): Draft {
   const normalized = raw.replace(/^\uFEFF/, "").replace(/\r\n/g, "\n");
   const match = normalized.match(/^---\n([\s\S]*?)\n---(?:\n|$)/);
@@ -121,7 +155,11 @@ export function renderDraft(
       "font-weight": "700",
       margin: "18px 0 10px",
     },
-    p: { margin: "0 0 18px", "line-height": String(t.lineHeight) },
+    p: {
+      margin: "0 0 18px",
+      "line-height": String(t.lineHeight),
+      "text-indent": "0",
+    },
     blockquote: {
       margin: "20px 0",
       padding: "14px 18px",
@@ -240,10 +278,15 @@ export function renderDraft(
     // The user's typography controls take precedence over sampled paragraph sizes.
     if (role === "p" || role === "li") {
       delete adjusted["font-size"];
-      delete adjusted["font-family"];
     }
     for (const key of Object.keys(adjusted))
       adjusted[key] = adjusted[key].split(t.palette.accent).join(accent);
+    if (
+      ["strong", "em", "a", "code"].includes(role) &&
+      adjusted["font-size"]?.endsWith("px")
+    )
+      adjusted["font-size"] =
+        `${(Number.parseFloat(adjusted["font-size"]) * options.fontSize) / t.fontSize}px`;
     if (
       (t.styleMode === "reference"
         ? options.forCards
@@ -318,13 +361,13 @@ export function renderDraft(
   }
   if (t.styleMode === "reference") {
     article.querySelectorAll<HTMLElement>("blockquote p").forEach((el) =>
-        el.setCssStyles({
-          color: "inherit",
-          fontSize: "inherit",
-          fontFamily: "inherit",
-          lineHeight: "inherit",
-          textAlign: "inherit",
-          textIndent: "0",
+      el.setCssStyles({
+        color: "inherit",
+        fontSize: "inherit",
+        fontFamily: "inherit",
+        lineHeight: "inherit",
+        textAlign: "inherit",
+        textIndent: "0",
         margin: "0",
       }),
     );
@@ -349,6 +392,26 @@ export function renderDraft(
       padding: "0",
     });
   });
+  for (const role of ["h2", "h3"] as const) {
+    const component = t.components?.[role];
+    if (!component) continue;
+    article.querySelectorAll<HTMLElement>(role).forEach((el, index) => {
+      applyHeadingComponent(el, component, index + 1, (styles) =>
+        Object.fromEntries(
+          Object.entries(styles).map(([key, value]) => {
+            let tuned = value.split(t.palette.accent).join(accent);
+            if (
+              options.forCards &&
+              /^(font-size|line-height)$/.test(key) &&
+              tuned.endsWith("px")
+            )
+              tuned = `${Number.parseFloat(tuned) * 1.75}px`;
+            return [key, tuned];
+          }),
+        ),
+      );
+    });
+  }
   for (const img of article.querySelectorAll("img")) {
     const src = img.getAttribute("src") || "";
     if (!options.imagePlaceholders && isEmbeddedImage(assets[src]))
@@ -397,6 +460,10 @@ export function renderDraft(
       article.append(p);
     }
   }
+  // Materialize inherited typography as inline declarations too. Host themes
+  // and paste targets can impose their own p/li/span fonts or drop the shell.
+  // Preview, clipboard and browser publishing all receive this exact HTML.
+  inlineTypography(article);
   // Text exporters preserve all paragraphs, links, images' captions, and code.
   const plain = article.cloneNode(true) as HTMLElement;
   plain.querySelectorAll("a").forEach((a) => {

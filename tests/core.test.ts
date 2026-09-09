@@ -158,7 +158,11 @@ test("manual font and accent overrides affect output", () => {
       .querySelector("section")!.style.fontSize,
     "21px",
   );
-  assert.ok(r.html.includes("#123456"));
+  assert.equal(
+    new DOMParser().parseFromString(r.html, "text/html").querySelector("h2")!
+      .style.color,
+    "rgb(18, 52, 86)",
+  );
 });
 test("learning extracts article typography and records provenance without source prose", () => {
   const html = readFileSync(

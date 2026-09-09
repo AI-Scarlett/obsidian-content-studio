@@ -1,7 +1,8 @@
 import parse from "css-tree/parser";
 import generate from "css-tree/generator";
 import walk from "css-tree/walker";
-import type { CssNode, WalkContext } from "css-tree";
+import juice from "juice/client";
+import { sampleHeadingComponent } from "./heading-component";
 import {
   BUILTIN_TEMPLATES,
   safeColor,
@@ -12,13 +13,12 @@ import type { Role, Styles, Template } from "./types";
 import { compactStyleHtml } from "./style-source";
 const css = { parse, generate, walk };
 
-function declarations(text: string, importantOnly = false): Styles {
+function declarations(text: string): Styles {
   const result: Styles = {};
   try {
     const ast = css.parse(text, { context: "declarationList" });
     css.walk(ast, (node) => {
       if (node.type === "Declaration") {
-        if (importantOnly && !node.important) return;
         const property =
           node.property === "background" ? "background-color" : node.property;
         const v = safeStyle(property, css.generate(node.value));
@@ -44,6 +44,25 @@ function declarations(text: string, importantOnly = false): Styles {
   } catch {
     /* malformed declarations do not become styles */
   }
+  // Expand CSS font and split-border declarations with the host's CSS parser.
+  // This element stays detached; only allowlisted values enter the template.
+  if (/(?:^|;)\s*(?:font\s*:|border-[\w-]+\s*:)/i.test(text)) {
+    const parsed = createDiv();
+    parsed.setAttribute("style", text);
+    const keys = /(?:^|;)\s*font\s*:/i.test(text)
+      ? ["font-size", "font-family", "font-weight", "font-style", "line-height"]
+      : [];
+    for (const side of ["left", "right", "top", "bottom"]) {
+      if (
+        new RegExp(`border-${side}-(?:width|style|color)\\s*:`, "i").test(text)
+      )
+        keys.push(`border-${side}`);
+    }
+    for (const key of keys) {
+      const value = safeStyle(key, parsed.style.getPropertyValue(key));
+      if (value) result[key] = value;
+    }
+  }
   return result;
 }
 export function stylesheetLinks(html: string, base: string): string[] {
@@ -64,10 +83,32 @@ export function learnTemplate(
   url = "pasted-html",
   externalCss: string[] = [],
 ): Template {
-  const doc = new DOMParser().parseFromString(
-    compactStyleHtml(html),
-    "text/html",
+  // The same CSS inliner used by doocs/md and obsidian-wechat-converter.
+  // The client entry point never fetches images, fonts or linked resources.
+  const compact = compactStyleHtml(html);
+  const prepared = new DOMParser().parseFromString(compact, "text/html");
+  const sheets = [...prepared.querySelectorAll("style")].map(
+    (el) => el.textContent || "",
   );
+  prepared.querySelectorAll("style").forEach((el) => el.remove());
+  let budget = 0;
+  const cssText = [...sheets, ...externalCss]
+    .filter((sheet) => (budget += sheet.length) <= 500_000)
+    .join("\n");
+  const inlined = juice.inlineContent(
+    prepared.documentElement.outerHTML,
+    cssText,
+    {
+      inlinePseudoElements: true,
+      preserveMediaQueries: false,
+      preserveFontFaces: false,
+      preserveKeyFrames: false,
+      preservePseudos: false,
+      removeStyleTags: true,
+      resolveCSSVariables: true,
+    },
+  );
+  const doc = new DOMParser().parseFromString(inlined, "text/html");
   doc
     .querySelectorAll("script,iframe,object,embed,noscript,svg,form,nav,footer")
     .forEach((el) => el.remove());
@@ -86,65 +127,6 @@ export function learnTemplate(
     throw new Error(
       "页面没有可学习的正文，可能需要登录或验证。请在浏览器打开后复制正文 HTML，使用“粘贴 HTML”。",
     );
-  type Rule = {
-    selector: string;
-    styles: Styles;
-    important: Styles;
-    score: number;
-    order: number;
-  };
-  const rules: Rule[] = [];
-  const sheets = [
-    ...Array.from(doc.querySelectorAll("style")).map(
-      (el) => el.textContent || "",
-    ),
-    ...externalCss,
-  ];
-  let cssBytes = 0;
-  for (const sheet of sheets) {
-    cssBytes += sheet.length;
-    if (cssBytes > 500_000) break;
-    try {
-      const ast = css.parse(sheet);
-      css.walk(ast, {
-        enter(this: WalkContext, node: CssNode) {
-          // A static reference must not combine print/dark/responsive variants
-          // into one style. Only unconditional article rules are sampled.
-          if (node.type === "Atrule") return this.skip;
-          if (
-            node.type !== "Rule" ||
-            node.prelude.type !== "SelectorList" ||
-            rules.length >= 600
-          )
-            return;
-          const style = declarations(css.generate(node.block).slice(1, -1));
-          const important = declarations(
-            css.generate(node.block).slice(1, -1),
-            true,
-          );
-          if (!Object.keys(style).length) return;
-          node.prelude.children.forEach((selector) => {
-            const s = css.generate(selector);
-            if (/:|\*/.test(s) || s.length > 200) return;
-            const score =
-              (s.match(/#/g) || []).length * 100 +
-              (s.match(/[.[]/g) || []).length * 10 +
-              (s.match(/(?:^|[ >+~])\w/g) || []).length;
-            rules.push({
-              selector: s,
-              styles: style,
-              important,
-              score,
-              order: rules.length,
-            });
-          });
-        },
-      });
-    } catch {
-      /* invalid stylesheet ignored */
-    }
-  }
-  rules.sort((a, b) => a.score - b.score || a.order - b.order);
   const cache = new Map<Element, Styles>();
   const inherited = new Set([
     "color",
@@ -166,24 +148,7 @@ export function learnTemplate(
     const parentSize = Number.parseFloat(result["font-size"]) || 16;
     if (el.matches("strong,b")) result["font-weight"] = "700";
     if (el.matches("em,i")) result["font-style"] = "italic";
-    const own: Styles = {};
-    const important: Styles = {};
-    for (const rule of rules) {
-      try {
-        if (el.matches(rule.selector)) {
-          Object.assign(own, rule.styles);
-          Object.assign(important, rule.important);
-        }
-      } catch {
-        /* unknown selector */
-      }
-    }
-    Object.assign(own, declarations(el.getAttribute("style") || ""));
-    Object.assign(
-      own,
-      important,
-      declarations(el.getAttribute("style") || "", true),
-    );
+    const own = declarations(el.getAttribute("style") || "");
     const fontSize = own["font-size"];
     if (fontSize && /(?:em|rem|%)$/.test(fontSize)) {
       const scale = fontSize.endsWith("rem") ? 16 : parentSize;
@@ -355,6 +320,8 @@ export function learnTemplate(
     return result;
   }
   const roles: Template["roles"] = {};
+  const components: Template["components"] = {};
+  const headingNodes: Partial<Record<"h2" | "h3", Element[]>> = {};
   const bodyNodes = contentNodes.filter(
     (el) => textLength(el) >= 40 && !el.closest("blockquote,li,figcaption"),
   );
@@ -385,12 +352,19 @@ export function learnTemplate(
       if (mainText.length) nodes = mainText;
     }
     if (nodes.length) roles[role] = representative(nodes);
+    if (role === "h2" || role === "h3") headingNodes[role] = nodes;
   }
   if (!root.querySelector("h2")) {
     const headings = contentNodes.slice(0, 1000).filter((el) => {
       const len = el.textContent?.trim().length || 0;
       const s = textStyle(el);
       const box = boxStyle(el);
+      const bodySize = Number.parseFloat(roles.p?.["font-size"] || "") || 16;
+      const candidateSize = Number.parseFloat(s["font-size"]) || bodySize;
+      // Repeated centered image captions / calls to action are often smaller
+      // than the article body. They must not become the main heading style.
+      if (candidateSize < bodySize || el.closest("figure,figcaption"))
+        return false;
       const distinct =
         Number.parseFloat(s["font-size"]) >=
           Math.max(
@@ -411,7 +385,36 @@ export function learnTemplate(
         (s["font-weight"] === "bold" || Number(s["font-weight"]) >= 600)
       );
     });
-    if (headings.length) roles.h2 = representative(headings);
+    if (headings.length) {
+      const bodySize = Number.parseFloat(roles.p?.["font-size"] || "") || 16;
+      const larger = headings.filter(
+        (el) => Number.parseFloat(textStyle(el)["font-size"]) >= bodySize + 1,
+      );
+      const primary = larger.length ? larger : headings;
+      roles.h2 = representative(primary);
+      headingNodes.h2 = primary;
+    }
+  }
+  for (const role of ["h2", "h3"] as const) {
+    const nodes = headingNodes[role] || [];
+    // Choose an actual component matching the representative typography, not
+    // an arbitrary first heading or a combination of incompatible fragments.
+    const ranked = [...nodes].sort((a, b) => {
+      const score = (el: Element) => {
+        const styles = { ...styleOf(el), ...boxStyle(el), ...textStyle(el) };
+        return Object.entries(roles[role] || {}).filter(
+          ([key, value]) => styles[key] === value,
+        ).length;
+      };
+      return score(b) - score(a);
+    });
+    for (const node of ranked) {
+      const component = sampleHeadingComponent(node, root, styleOf);
+      if (component) {
+        components[role] = component;
+        break;
+      }
+    }
   }
   const articleTitle = doc.querySelector("#activity-name");
   if (!roles.h1 && articleTitle) roles.h1 = representative([articleTitle]);
@@ -457,8 +460,8 @@ export function learnTemplate(
   const notes = [
     "提取配色、字体、间距及标题/引用样式；不保存原文章正文。",
     "已跳过参考文章图片和脚本；预览图片用占位符表示，不下载或保存原图。",
-    "按正文、标题、强调和容器采样排版；未出现的元素使用简洁样式，不代表已复刻。",
-    "图片内的标题装饰、动画、多栏和复杂嵌套布局未复刻；请用样式示例对照后保存。",
+    "已解析 CSS 层叠，并保留可识别的标题色块、嵌套文字与编号结构；未出现的元素使用简洁样式。",
+    "图片内文字、动画、整篇多栏布局和无法识别的装饰未复刻；请用样式示例对照后保存。",
   ];
   if (doc.querySelector('link[rel~="stylesheet"]') && externalCss.length === 0)
     notes.push("外部样式未读取，当前结果基于页面内样式。");
@@ -501,6 +504,7 @@ export function learnTemplate(
         ? "underline"
         : "plain",
     roles,
+    ...(Object.keys(components).length ? { components } : {}),
     source: {
       url,
       importedAt: new Date().toISOString(),

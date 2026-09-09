@@ -4,7 +4,7 @@ English | [简体中文](README.zh-CN.md)
 
 Format Obsidian notes for WeChat Official Accounts, Zhihu, Xiaohongshu and X. Choose one of six built-in templates, adjust typography and colors, or learn reusable styles from an article URL. The interface is currently in Simplified Chinese.
 
-Desktop only. This branch: 0.1.17 preview build with browser assistant 0.3.8. Requires Obsidian 1.8.7 or later; earlier native validation used 1.13.7. Formatting preserves your source text and runs locally. No AI account, API key or automatic publishing is required.
+Desktop only. This branch: 0.1.18 preview build with browser assistant 0.3.8. Requires Obsidian 1.8.7 or later; earlier native validation used 1.13.7. Formatting preserves your source text and runs locally. No AI account, API key or automatic publishing is required.
 
 ## Features
 
@@ -33,7 +33,7 @@ For updates, replace only `main.js`, `manifest.json` and `styles.css`; keep `dat
 The browser assistant is currently an unpacked Chrome/Edge extension, not a store listing. Mogao can open its onboarding page after you click a publish action. To install it directly from GitHub:
 
 1. Open the repository [Actions](https://github.com/AI-Scarlett/obsidian-content-studio/actions) page and open the latest successful **Verify plugin** or **Release plugin** run.
-2. Download `content-studio-package` (verification run) or `content-studio-0.1.17-package` (release run) from **Artifacts**. Unzip it and locate `mogao-browser-extension-0.3.8-preview.zip`.
+2. Download `content-studio-package` (verification run) or `content-studio-0.1.18-package` (release run) from **Artifacts**. Unzip it and locate `mogao-browser-extension-0.3.8-preview.zip`.
 3. Unzip that assistant archive. In Chrome open `chrome://extensions` (or `edge://extensions`), enable **Developer mode**, choose **Load unpacked**, and select the extracted `mogao-browser-extension` directory. Select the directory, not the ZIP file.
 4. Confirm the extension card shows version **0.3.8**. The first toolbar click may ask to open Obsidian; allow it so the assistant can return to Mogao.
 
@@ -96,7 +96,7 @@ npm run verify:extension
 npm run package
 ```
 
-`npm run verify` includes the official Obsidian ESLint recommended rules (zero warnings required), CSS lint, type checks, and 114 regression tests. `npm run verify:extension` adds 79 browser delivery tests, including real Tiptap/Draft.js models and offline WeChat contracts; these are not live platform acceptance. CSS is also checked against a conservative Chrome 120 compatibility profile. The development browser prototype was removed from the plugin source in 0.1.2; run the workbench inside Obsidian to test actual Vault behavior.
+`npm run verify` includes the official Obsidian ESLint recommended rules (zero warnings required), CSS lint, type checks, and 122 regression tests. `npm run verify:extension` adds 79 browser delivery tests, including real Tiptap/Draft.js models and offline WeChat contracts; these are not live platform acceptance. CSS is also checked against a conservative Chrome 120 compatibility profile. The development browser prototype was removed from the plugin source in 0.1.2; run the workbench inside Obsidian to test actual Vault behavior.
 
 Releases are built from version tags by [GitHub Actions](https://github.com/AI-Scarlett/obsidian-content-studio/actions/workflows/release.yml). Only the three supported plugin files are attached to a Release; optional ZIP/checksum packages are available as Actions artifacts or via `npm run package`. The workflow generates GitHub build-provenance attestations for all three release files. After downloading them, verify provenance with:
 
@@ -120,7 +120,7 @@ Start in Mogao with **发布到平台**. The extension automatically opens the s
 
 Click the browser assistant toolbar icon to open Obsidian and its Mogao workbench. Existing workbench edits are preserved; a newly opened workbench reads the active note. The first launch may require the browser’s external-app confirmation. The last-used vault must have Mogao enabled. On a pending publish handoff page, the icon continues that handoff instead.
 
-The 0.1.17 preview bundles browser assistant 0.3.8, with platform-specific media and draft adapters. The Zhihu multiple-image fix requires assistant 0.3.8: replace the files in your existing assistant directory and reload the extension once. See [the release notes](docs/releases/0.1.17.md) and [browser assistant documentation](browser-extension/README.md) for current validation boundaries.
+The 0.1.18 preview bundles browser assistant 0.3.8, with platform-specific media and draft adapters. The Zhihu multiple-image fix requires assistant 0.3.8: replace the files in your existing assistant directory and reload the extension once. See [the release notes](docs/releases/0.1.18.md) and [browser assistant documentation](browser-extension/README.md) for current validation boundaries.
 
 
 ### 普通图文发布
@@ -131,3 +131,7 @@ The 0.1.17 preview bundles browser assistant 0.3.8, with platform-specific media
 - X：普通帖将标题放在首行，正文和话题在后，最多 4 张图片作为帖子附件。普通帖使用纯文本，图片不嵌在段落之间。墨稿不拦截 X 字数，也不截断或拆帖；由 X 判断当前账号的发布限制。
 - 支持 PNG、JPEG、WebP。X 普通帖每张不超过 5 MB；小红书本工具每张不超过 8 MB。图片数量、格式或大小超限会停止发送；小红书仍检查标题和正文限制。
 - 这两个入口已做模型与上传控件回归测试；本版真实账号多图上传尚未完成验收。见发布说明。
+
+### Template engine in 0.1.18
+
+Built-in themes now have distinct paragraph typography and spacing. Reference sampling uses Juice to resolve CSS selectors and variables, and transfers supported nested heading boxes and number slots without retaining the original article text or media. Existing templates are preserved; resample a source to acquire the new structure. See [research and limitations](docs/template-engine-research.md), including the GitHub implementations studied.

@@ -27,6 +27,8 @@ await build({
     ...builtinModules,
     ...builtinModules.map((n) => `node:${n}`),
   ],
+  // Juice's client API only needs HTML parsing; omit Cheerio's URL/file loaders.
+  alias: { cheerio: "cheerio/slim" },
   legalComments: "eof",
   footer: {
     js: `/*\n${[license, notices].join("\n").replaceAll("*/", "* /")}\n*/`,

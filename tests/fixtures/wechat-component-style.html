@@ -1,0 +1,16 @@
+<!doctype html><html><head><title>Component sampling fixture</title><style>
+:root { --accent: #125ba3; --body-size: 17px; }
+article { font-family: 'PingFang SC', sans-serif; font-size: var(--body-size); color: #333333; line-height: 1.8; }
+article > p { margin: 0 8px 26px; letter-spacing: 1px; text-align: justify; }
+article > p:not(.caption) { font-size: var(--body-size); }
+.chapter { margin: 30px 0 20px; border: 1px solid var(--accent); padding: 8px; text-align: center; }
+.chapter > section { display: inline-block; padding: 8px 14px; background-color: var(--accent); }
+.chapter p { margin: 0; color: #ffffff; font-size: 22px; font-weight: 700; }
+.number { display: inline-block; color: #125ba3; width: 28px; font-size: 20px; font-weight: 700; }
+</style></head><body><article>
+<section class="chapter"><span class="number">01</span><section><p><span>原文第一节标题</span></p></section></section>
+<p>这里是用来提取字体和间距的参考正文。段落占据文章的大部分篇幅，从而避免把短标题和说明文字误认为正文样式。新稿件只使用这里的样式，不应该包含这一段原文内容。</p>
+<section class="chapter"><span class="number">02</span><section><p><span>原文第二节标题</span></p></section></section>
+<p>第二段参考正文继续保持相同的字体、字号和间距，确保采样器可以识别主要阅读节奏。参考图片的位置保留，但学习模板不需要下载原始图片。</p>
+<img src="https://example.com/large-source-image.png">
+</article></body></html>

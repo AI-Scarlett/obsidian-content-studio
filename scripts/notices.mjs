@@ -17,6 +17,10 @@ for (const path of [...new Set(paths)].sort()) {
   const files = (await readdir(path)).filter((f) =>
     /^(license|licence|copying|notice)([.-]|$)/i.test(f),
   );
+  if (!files.length && pkg.name === "boolbase" && pkg.version === "1.0.0") {
+    output += `\nThe npm package declares ISC but omits the license file. Text obtained from the upstream repository: https://github.com/fb55/boolbase/blob/be0bcd8a4e917a0a5895e95b523fbbed05a64871/LICENSE\n\n\u0060\u0060\u0060text\n${(await readFile("licenses/boolbase-ISC.txt", "utf8")).trim()}\n\u0060\u0060\u0060\n`;
+    continue;
+  }
   if (!files.length) throw Error(`Missing license text: ${pkg.name}`);
   for (const file of files)
     output += `\n### ${basename(file)}\n\n\u0060\u0060\u0060text\n${(await readFile(join(path, file), "utf8")).replace(/[ \t]+$/gm, "").trim()}\n\u0060\u0060\u0060\n`;

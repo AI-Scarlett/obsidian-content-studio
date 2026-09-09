@@ -59,7 +59,10 @@ test("reference render uses the learned shell and colors with no built-in green 
   assert.equal(article.style.fontSize, "19px");
   assert.equal(article.style.paddingLeft, "12px");
   assert.match(article.style.fontFamily, /PingFang SC/);
-  assert.equal(heading.style.color, "rgb(255, 255, 255)");
+  assert.equal(
+    heading.querySelector<HTMLElement>("[data-mg-heading-text]")!.style.color,
+    "rgb(255, 255, 255)",
+  );
   assert.equal(heading.style.backgroundColor, "rgb(18, 91, 163)");
   assert.equal(doc.querySelector("blockquote")!.style.borderLeftWidth, "3px");
   assert.equal(Number.parseFloat(heading.style.borderLeftWidth), 0);

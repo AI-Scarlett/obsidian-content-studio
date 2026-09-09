@@ -1,4 +1,5 @@
-import type { Role, Styles, Template } from "./types";
+import type { HeadingComponent, Role, Styles, Template } from "./types";
+import { validateHeadingComponent } from "./heading-component";
 
 const make = (
   id: string,
@@ -84,6 +85,92 @@ export const BUILTIN_TEMPLATES: Template[] = [
   ),
 ];
 
+// Each theme has its own reading rhythm, not just a different palette.
+const typography: Record<
+  string,
+  Pick<Template, "fontSize" | "lineHeight" | "roles">
+> = {
+  ink: {
+    fontSize: 16,
+    lineHeight: 1.8,
+    roles: {
+      p: { margin: "0 0 18px", "text-align": "justify", "letter-spacing": "0" },
+    },
+  },
+  cinnabar: {
+    fontSize: 17,
+    lineHeight: 1.8,
+    roles: {
+      p: { margin: "0 0 22px", "letter-spacing": "0.5px" },
+      h2: {
+        "font-size": "24px",
+        "text-align": "center",
+        margin: "32px 0 22px",
+      },
+    },
+  },
+  bamboo: {
+    fontSize: 17,
+    lineHeight: 2,
+    roles: {
+      p: {
+        margin: "0 0 28px",
+        "text-indent": "2em",
+        "text-align": "justify",
+        "letter-spacing": "1px",
+      },
+      h2: {
+        "font-size": "22px",
+        "text-align": "center",
+        margin: "36px 0 24px",
+      },
+    },
+  },
+  blueprint: {
+    fontSize: 16,
+    lineHeight: 1.7,
+    roles: {
+      p: { margin: "0 0 16px", "letter-spacing": "0" },
+      h2: { "font-size": "22px", "border-radius": "0" },
+      li: { margin: "5px 0" },
+    },
+  },
+  cream: {
+    fontSize: 18,
+    lineHeight: 1.9,
+    roles: {
+      p: {
+        margin: "0 0 24px",
+        "text-indent": "2em",
+        "letter-spacing": "0.5px",
+      },
+      h2: {
+        "font-size": "25px",
+        "text-align": "center",
+        margin: "36px 0 22px",
+      },
+    },
+  },
+  editorial: {
+    fontSize: 17,
+    lineHeight: 1.9,
+    roles: {
+      p: {
+        margin: "0 0 24px",
+        "text-align": "justify",
+        "letter-spacing": "0.8px",
+      },
+      h2: {
+        "font-size": "26px",
+        "letter-spacing": "1px",
+        margin: "38px 0 24px",
+      },
+    },
+  },
+};
+for (const template of BUILTIN_TEMPLATES)
+  Object.assign(template, typography[template.id]);
+
 const colorNames =
   /^(transparent|black|white|red|green|blue|gray|grey|navy|teal|orange|purple|maroon|olive|silver|currentcolor)$/i;
 export function safeColor(value: unknown): string | undefined {
@@ -97,6 +184,14 @@ export function safeColor(value: unknown): string | undefined {
     return v;
 }
 export const STYLE_PROPERTIES = new Set([
+  "display",
+  "width",
+  "height",
+  "max-width",
+  "vertical-align",
+  "gap",
+  "align-items",
+  "justify-content",
   "color",
   "background-color",
   "font-size",
@@ -136,6 +231,35 @@ export function safeStyle(property: string, value: string): string | undefined {
   )
     return;
   if (p === "color" || p === "background-color") return safeColor(v);
+  if (p === "display")
+    return /^(block|inline|inline-block|table|flex|inline-flex)$/.test(v)
+      ? v
+      : undefined;
+  if (p === "width" || p === "max-width")
+    return /^(auto|(?:[1-9]?\d|100)%|(?:[0-9]|[1-5]\d)(?:\.\d+)?px|[0-3](?:\.\d+)?em)$/.test(
+      v,
+    )
+      ? v
+      : undefined;
+  if (p === "height")
+    return /^(auto|(?:[0-9]|[1-5]\d)(?:\.\d+)?px|[0-3](?:\.\d+)?em)$/.test(v)
+      ? v
+      : undefined;
+  if (p === "vertical-align")
+    return /^(baseline|middle|top|bottom|text-top|text-bottom)$/.test(v)
+      ? v
+      : undefined;
+  if (p === "align-items")
+    return /^(start|end|center|baseline|stretch|flex-start|flex-end)$/.test(v)
+      ? v
+      : undefined;
+  if (p === "justify-content")
+    return /^(start|end|center|space-between|space-around|flex-start|flex-end)$/.test(
+      v,
+    )
+      ? v
+      : undefined;
+  if (/^margin(?:-left|-right)?$/.test(p) && v === "auto") return v;
   if (p === "font-family")
     return /^[\p{L}\p{N} ,'"_-]+$/u.test(v) ? v : undefined;
   if (p === "font-weight")
@@ -237,6 +361,11 @@ export function validateTemplate(input: unknown): Template {
   ] as Role[])
     if (t.roles?.[key]) roles[key] = sanitizeStyles(t.roles[key]);
   let source: Template["source"];
+  const components: Template["components"] = {};
+  for (const role of ["h2", "h3"] as const) {
+    const component = validateHeadingComponent(t.components?.[role]);
+    if (component) components[role] = component;
+  }
   if (t.source && typeof t.source.url === "string") {
     const url =
       t.source.url === "pasted-html"
@@ -281,6 +410,7 @@ export function validateTemplate(input: unknown): Template {
     radius: Math.max(0, Math.min(20, Number(t.radius) || 0)),
     ...(t.styleMode === "reference" ? { styleMode: "reference" as const } : {}),
     roles,
+    ...(Object.keys(components).length ? { components } : {}),
     source,
   };
 }
@@ -303,5 +433,13 @@ export function tuneTemplate(
   for (const styles of Object.values(result.roles || {}))
     for (const key of Object.keys(styles || {}))
       styles[key] = styles[key].split(base.palette.accent).join(color);
+  const recolor = (node: HeadingComponent) => {
+    for (const key of Object.keys(node.styles))
+      node.styles[key] = node.styles[key]
+        .split(base.palette.accent)
+        .join(color);
+    node.children?.forEach(recolor);
+  };
+  Object.values(result.components || {}).forEach(recolor);
   return result;
 }
