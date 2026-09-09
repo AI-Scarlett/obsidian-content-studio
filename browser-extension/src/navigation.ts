@@ -1,6 +1,7 @@
+import { postProbe, postVisible } from "./platforms/posts";
 import { findEditor, platformFor } from "./editor";
-import { destinations } from "./handoff";
-import type { Destination, Probe } from "./types";
+import { destinations, destinationUrl } from "./handoff";
+import type { Destination, Probe, PublishMode } from "./types";
 export interface Preparation {
   probe?: Probe;
   navigate?: string;
@@ -11,6 +12,7 @@ const created = new WeakSet<Document>();
 export function prepareDestination(
   doc: Document,
   expected: Destination,
+  mode?: PublishMode,
 ): Preparation {
   if (platformFor(doc.location.hostname) !== expected)
     return { status: "请在平台页面完成登录，登录后自动继续。" };
@@ -20,6 +22,28 @@ export function prepareDestination(
     )
   )
     return { status: "请在平台页面完成登录，登录后自动继续。" };
+  if (mode === "post") {
+    const probe = postProbe(doc, expected);
+    if (probe) return { probe };
+    const url = destinationUrl(expected, mode);
+    if (expected === "x" && doc.location.pathname !== "/compose/post")
+      return { navigate: url };
+    if (expected === "xiaohongshu") {
+      if (
+        doc.location.pathname !== "/publish/publish" ||
+        new URL(doc.location.href).searchParams.get("target") !== "image"
+      )
+        return { navigate: url };
+      const tab = [...doc.querySelectorAll<HTMLElement>(".creator-tab")].find(
+        (el) => postVisible(el) && el.textContent?.trim() === "上传图文",
+      );
+      if (tab && !created.has(doc)) {
+        created.add(doc);
+        tab.click();
+      }
+    }
+    return { status: "正在等待图文上传页；请完成登录后自动继续。" };
+  }
   const target = findEditor(doc);
   if (target) return { probe: target.probe };
   const visible = (el: HTMLElement) => el.getClientRects().length > 0;

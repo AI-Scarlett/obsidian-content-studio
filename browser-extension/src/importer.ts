@@ -1,5 +1,10 @@
 import { prepareArticle, readArticle } from "./package";
-import { destinations, handoffUrl, jobEndpoint } from "./handoff";
+import {
+  destinations,
+  destinationUrl,
+  handoffUrl,
+  jobEndpoint,
+} from "./handoff";
 import type { Command, ImportPlan, Probe, Reply } from "./types";
 
 const q = <T extends HTMLElement>(id: string) =>
@@ -9,7 +14,7 @@ const runId = crypto.randomUUID();
 const headers = {
   "X-Mogao-Extension": chrome.runtime.id,
   "X-Mogao-Run": runId,
-  "X-Mogao-Protocol": "7",
+  "X-Mogao-Protocol": "8",
   "Content-Type": "application/json",
 };
 const names = {
@@ -54,10 +59,10 @@ async function pageCommand(frameId: number, message: Command): Promise<Reply> {
     func: async (owner: string, command: Command): Promise<Reply> => {
       const runtime = (
         globalThis as typeof globalThis & {
-          __mogaoArticleV7?: import("./content").MainRuntime;
+          __mogaoArticleV8?: import("./content").MainRuntime;
         }
-      ).__mogaoArticleV7;
-      if (runtime?.version !== 7)
+      ).__mogaoArticleV8;
+      if (runtime?.version !== 8)
         return { ok: false, error: "平台适配器未加载，请更新墨稿扩展。" };
       return runtime.dispatch(owner, command);
     },
@@ -101,7 +106,11 @@ async function waitForEditor(plan: ImportPlan) {
       const probes = await Promise.all(
         frames.map(async (frame) => {
           try {
-            const reply = await pageCommand(frame.frameId, { op: "probe" });
+            const reply = await pageCommand(frame.frameId, {
+              op: "probe",
+              mode: plan.mode,
+              platform: plan.platform,
+            });
             return reply.probe
               ? { frameId: frame.frameId, probe: reply.probe }
               : undefined;
@@ -119,7 +128,10 @@ async function waitForEditor(plan: ImportPlan) {
           "平台同时显示多个编辑器，已停止同步，请在墨稿重新发布。",
         );
       if (found.length === 1) {
-        if (found[0].probe.platform !== plan.platform)
+        if (
+          found[0].probe.platform !== plan.platform ||
+          (found[0].probe.mode || "article") !== (plan.mode || "article")
+        )
           throw new Error("平台与稿件不一致。");
         if (!found[0].probe.empty || !found[0].probe.titleEmpty)
           throw new Error(
@@ -133,6 +145,7 @@ async function waitForEditor(plan: ImportPlan) {
         reply = await pageCommand(0, {
           op: "prepare",
           platform: plan.platform,
+          mode: plan.mode,
         });
       } catch {
         /* document may still be changing */
@@ -184,14 +197,19 @@ async function run() {
       readArticle(JSON.stringify(payload.article), "json", undefined, window),
       window,
     );
+    const name =
+      plan.mode === "post"
+        ? plan.platform === "x"
+          ? "X 普通图文帖"
+          : "小红书图文笔记"
+        : names[plan.platform];
     q("intro").textContent = "稿件已从墨稿送达，正在自动同步到平台。";
     q("article").textContent = plan.title;
-    q("target").textContent =
-      `${names[plan.platform]} · ${plan.images.length} 张图片`;
-    await report(`正在打开${names[plan.platform]}…`);
+    q("target").textContent = `${name} · ${plan.images.length} 张图片`;
+    await report(`正在打开${name}…`);
     check();
     const tab = await chrome.tabs.create({
-      url: destinations[plan.platform],
+      url: destinationUrl(plan.platform, plan.mode),
       active: true,
     });
     if (tab.id === undefined) throw new Error("无法打开平台标签页。");
@@ -200,8 +218,15 @@ async function run() {
     await waitForEditor(plan);
     check();
     // Recheck immediately before changing the editor; never reuse an existing draft.
-    const probe = (await command({ op: "probe" })).probe;
-    if (!probe?.empty || !probe.titleEmpty || probe.platform !== plan.platform)
+    const probe = (
+      await command({ op: "probe", mode: plan.mode, platform: plan.platform })
+    ).probe;
+    if (
+      !probe?.empty ||
+      !probe.titleEmpty ||
+      probe.platform !== plan.platform ||
+      (probe.mode || "article") !== (plan.mode || "article")
+    )
       throw new Error("平台草稿已变化，已停止同步。");
     const { images, ...body } = plan;
     importing = true;

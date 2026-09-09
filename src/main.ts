@@ -153,6 +153,17 @@ export default class ContentStudioPlugin extends Plugin {
         customTemplates: templates,
         exportFolder,
         footnotes: saved.footnotes !== false,
+        publishModes: {
+          x:
+            isRecord(saved.publishModes) && saved.publishModes.x === "post"
+              ? "post"
+              : "article",
+          xiaohongshu:
+            isRecord(saved.publishModes) &&
+            saved.publishModes.xiaohongshu === "post"
+              ? "post"
+              : "article",
+        },
       };
     }
     this.lastNote = this.app.workspace.getActiveFile();

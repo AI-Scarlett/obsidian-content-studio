@@ -17,7 +17,7 @@ declare const MOGAO_EXTENSION_VERSION: string;
 const extensionVersion =
   typeof MOGAO_EXTENSION_VERSION === "string"
     ? MOGAO_EXTENSION_VERSION
-    : "0.3.5";
+    : "0.3.6";
 const extensionArchive =
   typeof MOGAO_EXTENSION_ZIP === "string" ? MOGAO_EXTENSION_ZIP : "";
 export type BridgePlatform = "wechat" | "xiaohongshu" | "zhihu" | "x";
@@ -27,6 +27,8 @@ export interface BrowserArticle {
   title: string;
   platform: BridgePlatform;
   html: string;
+  mode?: "article" | "post";
+  topics?: string[];
   source: "studio" | "note";
 }
 interface Delivery {
@@ -225,7 +227,7 @@ export class BrowserBridge {
       this.page(
         res,
         "墨稿 · 连接发布助手",
-        `<h1>发送到${names[job.article.platform]}</h1><p>《${escape(job.article.title)}》</p><p id="state" role="status" aria-live="polite">正在连接墨稿发布助手…</p><small id="extension-version">配套扩展版本 ${extensionVersion}</small><section id="recovery" hidden><h2>扩展没有连接上</h2><p>工具栏有墨稿图标，说明扩展已添加；图标不代表当前版本已启用并取得此页权限。</p><ol><li>已安装过：在浏览器扩展管理页确认墨稿已启用，点击重新加载，版本应为 ${extensionVersion} 或更新。</li><li>在扩展详情的“网站访问权限”中，允许本机地址 127.0.0.1 和所选发布平台。使用装有墨稿扩展的 Chrome / Edge 用户配置。</li><li>完成后刷新此页，或直接点击工具栏的墨稿图标，接续这篇稿件。</li></ol><p><button id="retry" type="button">重新连接</button> <a href="/publish/${id}">刷新发布页</a></p><details><summary>尚未安装，或需要更新扩展文件</summary><p>当前为开发预览版，尚未上架 Chrome 扩展商店。安装一次，之后在 Obsidian 点发布即可自动接续。</p><p><a href="/extension.zip" download>下载墨稿浏览器扩展 ${extensionVersion}</a>。已有扩展请将新版文件替换到原扩展目录再重新加载；首次安装请解压后在扩展管理页选择“加载已解压的扩展程序”。</p><p><a href="https://github.com/AI-Scarlett/obsidian-content-studio/tree/feat/browser-article-import-preview/browser-extension" target="_blank" rel="noreferrer">查看安装说明</a></p></details></section><p><small>本页保留本次稿件的连接，无需导出或选择文件。未登录时，请在平台页面完成登录；登录后会自动继续同步。最后的发表由你确认。</small></p>`,
+        `<h1>发送到${job.article.mode === "post" ? (job.article.platform === "x" ? "X 普通图文帖" : "小红书图文笔记") : names[job.article.platform]}</h1><p>《${escape(job.article.title)}》</p><p id="state" role="status" aria-live="polite">正在连接墨稿发布助手…</p><small id="extension-version">配套扩展版本 ${extensionVersion}</small><section id="recovery" hidden><h2>扩展没有连接上</h2><p>工具栏有墨稿图标，说明扩展已添加；图标不代表当前版本已启用并取得此页权限。</p><ol><li>已安装过：在浏览器扩展管理页确认墨稿已启用，点击重新加载，版本应为 ${extensionVersion} 或更新。</li><li>在扩展详情的“网站访问权限”中，允许本机地址 127.0.0.1 和所选发布平台。使用装有墨稿扩展的 Chrome / Edge 用户配置。</li><li>完成后刷新此页，或直接点击工具栏的墨稿图标，接续这篇稿件。</li></ol><p><button id="retry" type="button">重新连接</button> <a href="/publish/${id}">刷新发布页</a></p><details><summary>尚未安装，或需要更新扩展文件</summary><p>当前为开发预览版，尚未上架 Chrome 扩展商店。安装一次，之后在 Obsidian 点发布即可自动接续。</p><p><a href="/extension.zip" download>下载墨稿浏览器扩展 ${extensionVersion}</a>。已有扩展请将新版文件替换到原扩展目录再重新加载；首次安装请解压后在扩展管理页选择“加载已解压的扩展程序”。</p><p><a href="https://github.com/AI-Scarlett/obsidian-content-studio/tree/feat/browser-article-import-preview/browser-extension" target="_blank" rel="noreferrer">查看安装说明</a></p></details></section><p><small>本页保留本次稿件的连接，无需导出或选择文件。未登录时，请在平台页面完成登录；登录后会自动继续同步。最后的发表由你确认。</small></p>`,
         true,
       );
       return;
@@ -249,10 +251,10 @@ export class BrowserBridge {
       this.json(res, 403, { error: "缺少本次发布窗口标识。" });
       return;
     }
-    if (req.headers["x-mogao-protocol"] !== "7") {
+    if (req.headers["x-mogao-protocol"] !== "8") {
       this.json(res, 426, {
         error:
-          "浏览器仍在运行旧版墨稿扩展。文件已更新时，请在扩展管理页重新加载，确认版本为 0.3.5 或更新，再从墨稿发布。旧版不会接收这篇稿件。",
+          "浏览器仍在运行旧版墨稿扩展。文件已更新时，请在扩展管理页重新加载，确认版本为 0.3.6 或更新，再从墨稿发布。旧版不会接收这篇稿件。",
       });
       return;
     }

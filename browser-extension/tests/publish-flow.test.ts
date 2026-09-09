@@ -5,7 +5,7 @@ import { build } from "esbuild";
 import { JSDOM } from "jsdom";
 import { randomUUID } from "node:crypto";
 import { BrowserBridge } from "../../src/core/browser-bridge";
-import { destinations } from "../src/handoff";
+import { destinations, destinationUrl } from "../src/handoff";
 const bundle = await build({
   entryPoints: ["browser-extension/src/importer.ts"],
   bundle: true,
@@ -20,6 +20,7 @@ const png =
 async function scenario({
   platform = "xiaohongshu" as keyof typeof destinations,
   editorUrl = "https://mp.weixin.qq.com/cgi-bin/appmsg?action=edit&appmsgid=12345",
+  mode = "article" as "article" | "post",
   nonempty = false,
   denied = false,
   cancelled = false,
@@ -32,6 +33,8 @@ async function scenario({
       format: "mogao-article",
       version: 1,
       platform,
+      mode,
+      topics: mode === "post" ? ["记录"] : undefined,
       title: "自动测试稿",
       source: "studio",
       html: `<p>开头</p><img src="${png}"><p>中间</p><img src="${png}"><p>结尾</p>`,
@@ -56,12 +59,13 @@ async function scenario({
   let polls = 0;
   const probe = {
     platform,
+    mode,
     editor: "tiptap",
     empty: !nonempty,
     titleEmpty: !nonempty,
   };
   win.chrome = {
-    runtime: { id: "a".repeat(32), getManifest: () => ({ version: "0.3.5" }) },
+    runtime: { id: "a".repeat(32), getManifest: () => ({ version: "0.3.6" }) },
     tabs: {
       create: async (options: any) => {
         tabs.push(options);
@@ -72,7 +76,10 @@ async function scenario({
         if (cancelled) win.document.getElementById("cancel").click();
         return {
           status: "complete",
-          url: polls === 1 ? "https://login.example/" : destinations[platform],
+          url:
+            polls === 1
+              ? "https://login.example/"
+              : destinationUrl(platform, mode),
         };
       },
       update: async (_id: number, options: any) => {
@@ -200,3 +207,21 @@ test("X handoff opens Articles and sends title, structured body and files withou
   );
   assert.equal(result.commands.filter((c) => c.op === "image").length, 2);
 });
+
+for (const platform of ["x", "xiaohongshu"] as const)
+  test(`${platform} normal post handoff opens the right mode and transports images and topics`, async () => {
+    const result = await scenario({ platform, mode: "post" });
+    assert.deepEqual(result.tabs, [
+      { url: destinationUrl(platform, "post"), active: true },
+    ]);
+    const begin = result.commands.find((c) => c.op === "begin");
+    assert.equal(begin.plan.mode, "post");
+    assert.deepEqual(begin.plan.topics, ["记录"]);
+    assert.equal(result.commands.filter((c) => c.op === "image").length, 2);
+    assert.ok(
+      result.commands
+        .filter((c) => c.op === "probe")
+        .every((c) => c.mode === "post"),
+    );
+    assert.match(begin.plan.caption, /开头\n\n中间\n\n结尾/);
+  });

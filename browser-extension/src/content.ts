@@ -1,19 +1,20 @@
+import { PostSession, postProbe } from "./platforms/posts";
 import { prepareDestination } from "./navigation";
 import { EditorSession, findEditor } from "./editor";
 import { WechatSession, wechatProbe } from "./platforms/wechat";
 import type { Command, Reply } from "./types";
 
 export interface MainRuntime {
-  version: 7;
+  version: 8;
   dispatch(owner: string, message: Command): Promise<Reply>;
 }
 const scope = globalThis as typeof globalThis & {
-  __mogaoArticleV7?: MainRuntime;
+  __mogaoArticleV8?: MainRuntime;
 };
 // Injected explicitly into MAIN only after a user sends a draft from Obsidian.
 // No page message listener, remote code, cookie export or publication endpoint.
-if (!scope.__mogaoArticleV7) {
-  let session: EditorSession | WechatSession | undefined;
+if (!scope.__mogaoArticleV8) {
+  let session: EditorSession | WechatSession | PostSession | undefined;
   let owner: string | undefined;
   let busy = false;
   let timer: number | undefined;
@@ -22,20 +23,27 @@ if (!scope.__mogaoArticleV7) {
     session = undefined;
     window.clearTimeout(timer);
   };
-  scope.__mogaoArticleV7 = {
-    version: 7,
+  scope.__mogaoArticleV8 = {
+    version: 8,
     async dispatch(requestOwner, message) {
       if (!/^[a-f\d-]{36}$/.test(requestOwner))
         return { ok: false, error: "发布任务标识不正确。" };
       if (message.op === "probe")
         return {
           ok: true,
-          probe: wechatProbe(document) || findEditor(document)?.probe,
+          probe:
+            message.mode === "post"
+              ? postProbe(document, message.platform)
+              : wechatProbe(document) || findEditor(document)?.probe,
         };
       if (message.op === "prepare")
         return {
           ok: true,
-          preparation: prepareDestination(document, message.platform),
+          preparation: prepareDestination(
+            document,
+            message.platform,
+            message.mode,
+          ),
         };
       if (owner && owner !== requestOwner)
         return {
@@ -55,7 +63,14 @@ if (!scope.__mogaoArticleV7) {
             throw new Error("本页的同步任务已开始或结束，请勿重复写入。");
           owner = requestOwner;
           const probe = wechatProbe(document);
-          if (message.plan.platform === "wechat" && probe)
+          if (message.plan.mode === "post") {
+            if (
+              message.plan.platform !== "x" &&
+              message.plan.platform !== "xiaohongshu"
+            )
+              throw new Error("该平台不支持图文帖模式。");
+            session = new PostSession(document, message.plan.platform);
+          } else if (message.plan.platform === "wechat" && probe)
             session = new WechatSession(document);
           else {
             const target = findEditor(document);

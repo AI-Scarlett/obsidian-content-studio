@@ -43,3 +43,8 @@ The actual Studio copy buttons were exercised in an isolated local Chrome page w
 These checks do not assert destination acceptance. Browser policy prevented access to the WeChat editor; no platform import/upload or publication was performed. Native Obsidian was observed running the 0.1.3 workspace before this update. Installed file verification and release provenance do not imply that the running plugin has been reloaded. Preserve/export temporary drafts before reloading.
 
 Private notes, vault paths, local screenshots and machine logs are excluded from source control. Release assets are restricted to `main.js`, `manifest.json`, `styles.css`, with attestations from the tagged release workflow. Community review remains external.
+
+
+## 0.1.13 / assistant 0.3.6 normal posts
+
+The new X and Xiaohongshu post modes are covered by scoped composer/gallery fixtures, Draft.js text state and Tiptap native topic nodes, mode-aware handoff transport, ordered repeated images, limits, failures, cancellation and preservation of user edits. These tests simulate uploads. Live inspection confirmed the empty normal-post routes and native inputs only; real uploads and draft reopening are not yet verified. See [0.1.13](releases/0.1.13.md).

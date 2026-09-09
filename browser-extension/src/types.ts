@@ -1,9 +1,12 @@
+export type PublishMode = "article" | "post";
 export type Destination = "wechat" | "xiaohongshu" | "zhihu" | "x";
 export interface ArticleFile {
   format: "mogao-article";
   version: 1;
   title: string;
   platform: Destination;
+  mode?: PublishMode;
+  topics?: string[];
   html: string;
 }
 export interface InlineImage {
@@ -17,13 +20,17 @@ export interface InlineImage {
 export interface ImportPlan {
   title: string;
   platform: Destination;
+  mode?: PublishMode;
+  topics?: string[];
   html: string;
   images: InlineImage[];
   textParts: string[];
+  caption?: string;
 }
 export interface Probe {
   platform: Destination;
   editor: string;
+  mode?: PublishMode;
   empty: boolean;
   titleEmpty: boolean;
 }
@@ -34,8 +41,8 @@ export interface Progress {
   navigate?: string;
 }
 export type Command =
-  | { op: "probe" }
-  | { op: "prepare"; platform: Destination }
+  | { op: "probe"; mode?: PublishMode; platform?: Destination }
+  | { op: "prepare"; platform: Destination; mode?: PublishMode }
   | { op: "begin"; plan: Omit<ImportPlan, "images">; markers: string[] }
   | { op: "image"; image: InlineImage }
   | { op: "finish" }

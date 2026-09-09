@@ -1,3 +1,4 @@
+import { postContent, postCaption, validatePost } from "../../src/core/post";
 import createDOMPurify from "dompurify";
 import type {
   ArticleFile,
@@ -55,6 +56,16 @@ export function readArticle(
     !destinations.has(value.platform)
   )
     throw new Error("稿件格式不正确，请回到墨稿重新发布。");
+  if (
+    (value.mode !== undefined &&
+      value.mode !== "article" &&
+      value.mode !== "post") ||
+    (value.mode === "post" && !["x", "xiaohongshu"].includes(value.platform)) ||
+    (value.topics !== undefined &&
+      (!Array.isArray(value.topics) ||
+        !value.topics.every((tag) => typeof tag === "string")))
+  )
+    throw new Error("图文模式或话题格式不正确，请更新墨稿后重新同步。");
   return value as unknown as ArticleFile;
 }
 
@@ -140,6 +151,19 @@ export function prepareArticle(
       el.removeAttribute("href");
   }
   const sources = [...root.querySelectorAll("img")];
+  const post = postContent(root);
+  const topics = article.topics ?? post.topics;
+  if (article.mode === "post") {
+    if (article.platform !== "x" && article.platform !== "xiaohongshu")
+      throw new Error("该平台不支持普通图文模式。");
+    validatePost(
+      article.platform,
+      article.title,
+      post.body,
+      topics,
+      sources.length,
+    );
+  }
   if (sources.length > 40)
     throw new Error("预览版每篇最多导入 40 个图片位置，请拆分文章。");
   const images: InlineImage[] = [];
@@ -153,6 +177,13 @@ export function prepareArticle(
       throw new Error(
         `第 ${index + 1} 张图没有内嵌图片文件。请在墨稿里载入全部图片后重新导出。`,
       );
+    if (
+      article.mode === "post" &&
+      !["image/png", "image/jpeg", "image/webp"].includes(match[1])
+    )
+      throw new Error(
+        `第 ${index + 1} 张图格式不支持图文同步，请转为 PNG、JPEG 或 WebP。`,
+      );
     let bytes: string;
     try {
       bytes = win.atob(match[3]);
@@ -161,6 +192,12 @@ export function prepareArticle(
     }
     if (!bytes.length || bytes.length > MAX_IMAGE_BYTES)
       throw new Error(`第 ${index + 1} 张图为空或超过 8 MB。`);
+    if (
+      article.mode === "post" &&
+      article.platform === "x" &&
+      bytes.length > 5 * 1024 * 1024
+    )
+      throw new Error(`第 ${index + 1} 张图超过 X 普通帖 5 MB 限制。`);
     const marker = `MOGAOIMAGE${nonce}N${index}END`;
     const placeholder = win.document.createElement("span");
     placeholder.textContent = marker;
@@ -186,6 +223,19 @@ export function prepareArticle(
   textParts.push(normalizeText(rest));
   if (!normalizeText(text)) throw new Error("正文为空。");
   return {
+    ...(article.mode === "post" &&
+    (article.platform === "x" || article.platform === "xiaohongshu")
+      ? {
+          mode: "post" as const,
+          topics,
+          caption: postCaption(
+            article.platform,
+            article.title,
+            post.body,
+            article.platform === "x" ? topics : [],
+          ),
+        }
+      : {}),
     title: article.title,
     platform: article.platform,
     html: root.innerHTML,

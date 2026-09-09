@@ -1369,3 +1369,46 @@
 .mg.mg.mg [hidden] {
   display: none;
 }
+
+.mg .mg-post-options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin-bottom: 8px;
+  font-size: 12px;
+}
+.mg .mg-post-options label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.mg .mg-topics-field {
+  flex: 1 1 220px;
+}
+.mg .mg-topics-input {
+  width: 100%;
+  min-width: 0;
+}
+.mg .mg-post-preview {
+  padding: 24px;
+  background: #fff;
+  color: #222;
+}
+.mg .mg-post-preview > p {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.mg .mg-post-gallery {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.mg .mg-post-gallery figure {
+  margin: 0;
+}
+.mg .mg-post-gallery img {
+  width: 100%;
+  max-height: 280px;
+  object-fit: contain;
+}

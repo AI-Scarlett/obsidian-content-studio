@@ -65,6 +65,7 @@ export interface Settings {
   customTemplates: Template[];
   exportFolder: string;
   footnotes: boolean;
+  publishModes?: Partial<Record<"xiaohongshu" | "x", "article" | "post">>;
 }
 export const DEFAULT_SETTINGS: Settings = {
   templateId: "ink",

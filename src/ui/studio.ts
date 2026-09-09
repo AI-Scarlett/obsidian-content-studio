@@ -1,3 +1,10 @@
+import {
+  postContent,
+  postCaption,
+  parseTopics,
+  validatePost,
+  type PublishMode,
+} from "../core/post";
 import type { BrowserArticle, BridgePlatform } from "../core/browser-bridge";
 import { setSafeHtml, errorMessage } from "../core/dom";
 import {
@@ -77,6 +84,25 @@ export class Studio {
   private preview!: HTMLElement;
   private cardDeck?: CardDeck;
   private cardGeneration = 0;
+  private topicOverride?: string[];
+  private publishMode(
+    platform: Platform = this.settings.platform,
+  ): PublishMode {
+    return platform === "x" || platform === "xiaohongshu"
+      ? this.settings.publishModes?.[platform] || "article"
+      : "article";
+  }
+  private postDetails(html: string) {
+    const parsed = new (
+      this.root.win as Window & { DOMParser: typeof DOMParser }
+    ).DOMParser().parseFromString(html, "text/html");
+    const content = postContent(parsed.body);
+    return {
+      ...content,
+      topics: this.topicOverride ?? content.topics,
+      images: [...parsed.querySelectorAll("img")],
+    };
+  }
   private previewMode: "article" | "thread" | "cards" = "article";
   private saveQueue: Promise<void> = Promise.resolve();
   constructor(
@@ -162,7 +188,7 @@ export class Studio {
       <div class="mg-workbar"><div class="mg-view-modes" aria-label="工作区模式"><button data-view="edit">编辑</button><button data-view="preview">预览</button><button data-view="split">对照</button></div><span class="mg-source">选择一篇笔记开始</span><span class="mg-counts"></span></div>
       <main class="mg-workspace"><section class="mg-writing" aria-label="编辑排版稿"><label class="mg-title-field">标题<input class="mg-title-input" placeholder="文章标题" maxlength="300"></label><label class="mg-body-label" for="mg-body-${crypto.randomUUID()}">正文 <span>Markdown · 仅编辑排版稿，不改原笔记</span></label><textarea class="mg-markdown-input" aria-label="正文 Markdown" spellcheck="false" placeholder="读取笔记，或在这里粘贴 Markdown 开始写作…"></textarea></section>
       <section class="mg-canvas" aria-label="图文预览"><div class="mg-canvas-toolbar"><span>图文预览</span><div class="mg-preview-modes"><button data-mode="article">排版</button><button data-mode="thread">串文</button><button data-mode="cards">卡片</button></div></div><div class="mg-image-strip" aria-label="笔记图片" hidden></div><div class="mg-preview-scroll"><div class="mg-preview"></div></div></section></main>
-      <section class="mg-output-area"><div class="mg-publish-actions"><button data-action="copy-title" class="mg-button">复制标题</button><button data-action="copy" class="mg-button">复制正文</button><button data-action="publish-browser" class="mg-button mg-primary">发布到公众号</button></div><p class="mg-platform-hint"></p><details class="mg-output-details"><summary><span class="mg-image-status"></span></summary><div class="mg-warnings" aria-live="polite"></div><button data-action="images" class="mg-text-button">重新载入图片</button><button data-action="export" class="mg-text-button">备份完整内容包</button><button data-action="publish" class="mg-text-button">导出 Word 图文</button><button data-action="copy-images" class="mg-text-button">单独复制图片</button></details></section>
+      <section class="mg-output-area"><div class="mg-post-options" hidden><label>发布类型 <select class="mg-publish-mode" aria-label="发布类型"><option value="article">长文</option><option value="post">普通图文</option></select></label><label class="mg-topics-field" hidden>话题 <input class="mg-topics-input" aria-label="发布话题" placeholder="#话题，用空格分隔"></label></div><div class="mg-publish-actions"><button data-action="copy-title" class="mg-button">复制标题</button><button data-action="copy" class="mg-button">复制正文</button><button data-action="publish-browser" class="mg-button mg-primary">发布到公众号</button></div><p class="mg-platform-hint"></p><details class="mg-output-details"><summary><span class="mg-image-status"></span></summary><div class="mg-warnings" aria-live="polite"></div><button data-action="images" class="mg-text-button">重新载入图片</button><button data-action="export" class="mg-text-button">备份完整内容包</button><button data-action="publish" class="mg-text-button">导出 Word 图文</button><button data-action="copy-images" class="mg-text-button">单独复制图片</button></details></section>
       <div class="mg-drawer-backdrop" hidden><aside class="mg-drawer" aria-label="模板与样式"><header><h2>模板与样式</h2><button data-action="close-appearance" class="mg-button">完成</button></header><section class="mg-settings"><div class="mg-section-title"><h2>微调样式</h2><button data-action="reset" class="mg-text-button">重置</button></div><label class="mg-field">正文字号 <span class="mg-font-value"></span><input class="mg-font-input" type="range" min="12" max="24" step="1" value="16"></label><label class="mg-color-field">主题颜色<input class="mg-color-input" type="color" value="#3d6254"></label><label class="mg-check"><input class="mg-footnotes" type="checkbox"> 公众号文末保留链接</label><div class="mg-template-controls"><button data-action="save-template" class="mg-text-button">存为新模板</button><button data-action="export-template" class="mg-text-button">导出模板</button><button data-action="delete-template" class="mg-text-button mg-danger">删除</button></div><div class="mg-template-source"></div></section><section class="mg-library"><div class="mg-section-title"><h2>模板库</h2><span class="mg-template-count"></span></div><div class="mg-template-list"></div><div class="mg-library-bottom"><button data-action="learn" class="mg-button mg-learn">＋ 链接学模板</button><button data-action="import" class="mg-text-button">导入模板 JSON</button><input type="file" class="mg-file-input" accept="application/json,.json" hidden></div></section></aside></div>
       <footer class="mg-status" role="status" aria-live="polite">编辑、预览随时切换；宽窗口可左右对照。</footer>`,
     );
@@ -348,6 +374,30 @@ export class Studio {
         this.render();
       }),
     );
+    this.q<HTMLSelectElement>(".mg-publish-mode").addEventListener(
+      "change",
+      (event) => {
+        const platform = this.settings.platform;
+        if (platform !== "x" && platform !== "xiaohongshu") return;
+        this.settings.publishModes ||= {};
+        this.settings.publishModes[platform] =
+          (event.target as HTMLSelectElement).value === "post"
+            ? "post"
+            : "article";
+        this.previewMode = "article";
+        this.commitPreferences();
+        this.render();
+      },
+    );
+    this.q<HTMLInputElement>(".mg-topics-input").addEventListener(
+      "input",
+      (event) => {
+        this.topicOverride = parseTopics(
+          (event.target as HTMLInputElement).value,
+        );
+        this.debounce();
+      },
+    );
     this.q<HTMLInputElement>(".mg-title-input").addEventListener(
       "input",
       (e) => {
@@ -413,6 +463,8 @@ export class Studio {
     this.imageGeneration++;
     this.imageJob = undefined;
     this.draft = structuredClone(draft);
+    this.topicOverride = undefined;
+    this.q<HTMLInputElement>(".mg-topics-input").value = "";
     this.assets = {};
     this.assetWarnings = [];
     this.q<HTMLInputElement>(".mg-title-input").value = draft.title;
@@ -527,6 +579,12 @@ export class Studio {
     this.cardDeck?.dispose();
     this.cardDeck = undefined;
     const platform = this.settings.platform;
+    const postMode = this.publishMode() === "post";
+    this.q(".mg-post-options").hidden =
+      platform !== "x" && platform !== "xiaohongshu";
+    this.q<HTMLSelectElement>(".mg-publish-mode").value = this.publishMode();
+    this.q(".mg-topics-field").hidden = !postMode;
+    this.q(".mg-preview-modes").hidden = postMode;
     this.root.querySelectorAll<HTMLElement>("[data-platform]").forEach((el) => {
       el.classList.toggle("is-active", el.dataset.platform === platform);
       el.setAttribute("aria-pressed", String(el.dataset.platform === platform));
@@ -563,10 +621,21 @@ export class Studio {
           : "导出原图";
     this.q(".mg-platform-hint").textContent = PLATFORMS[platform].hint;
     this.q('[data-action="publish-browser"]').hidden = false;
-    this.q('[data-action="publish-browser"]').textContent =
-      platform === "x" ? "发布到 X 长文" : `发布到${PLATFORMS[platform].name}`;
-    this.q('[data-action="copy"]').textContent =
-      platform === "x" && this.previewMode === "thread"
+    this.q('[data-action="publish-browser"]').textContent = postMode
+      ? platform === "x"
+        ? "发布 X 普通图文帖"
+        : "发布小红书图文笔记"
+      : platform === "x"
+        ? "发布到 X 长文"
+        : `发布到${PLATFORMS[platform].name}`;
+    if (postMode)
+      this.q(".mg-platform-hint").textContent =
+        platform === "x"
+          ? "标题放在首行，图片按笔记顺序作为附件上传（最多 4 张）；正文限 280 加权字符。"
+          : "自动上传原图（最多 18 张），填写标题、正文和话题。文末 #话题会自动识别，可在上方修改。";
+    this.q('[data-action="copy"]').textContent = postMode
+      ? "复制文案"
+      : platform === "x" && this.previewMode === "thread"
         ? "复制整组串文"
         : "复制图文正文";
     this.q('[data-action="copy-images"]').hidden = !imageSources(this.draft)
@@ -614,7 +683,37 @@ export class Studio {
       "mg-deck-preview",
       this.previewMode === "cards",
     );
-    if (this.previewMode === "thread") {
+    if (postMode && (platform === "x" || platform === "xiaohongshu")) {
+      const details = this.postDetails(this.bodyContent().html);
+      const caption = postCaption(
+        platform,
+        this.draft.title,
+        details.body,
+        details.topics,
+      );
+      if (this.topicOverride === undefined)
+        this.q<HTMLInputElement>(".mg-topics-input").value = details.topics
+          .map((topic) => `#${topic}`)
+          .join(" ");
+      this.q(".mg-counts").textContent =
+        `${platform === "x" ? weightedLength(caption) + " / 280 加权字符" : Array.from(caption).length + " / 1,000 字"} · ${details.images.length} 张图片`;
+      try {
+        validatePost(
+          platform,
+          this.draft.title,
+          details.body,
+          details.topics,
+          details.images.length,
+        );
+      } catch (error) {
+        const warning = createEl("p", { text: errorMessage(error) });
+        this.q(".mg-warnings").append(warning);
+      }
+      setSafeHtml(
+        this.preview,
+        `<section class="mg-post-preview">${platform === "xiaohongshu" ? `<h2>${escapeHtml(this.draft.title)}</h2>` : ""}<p>${escapeHtml(caption)}</p><div class="mg-post-gallery">${details.images.map((img, index) => `<figure><img src="${escapeHtml(img.getAttribute("src") || "")}" alt="图片 ${index + 1}"><figcaption>${index + 1}</figcaption></figure>`).join("")}</div></section>`,
+      );
+    } else if (this.previewMode === "thread") {
       const threads = splitThread(this.bodyContent().plainText);
       setSafeHtml(
         this.preview,
@@ -789,6 +888,16 @@ export class Studio {
     );
   }
   private async copy() {
+    if (this.publishMode() === "post") {
+      const details = this.postDetails(this.bodyContent().html);
+      await this.host.copy(
+        postCaption("xiaohongshu", "", details.body, details.topics),
+        undefined,
+        this.root,
+      );
+      this.tell("文案已复制（不含标题）；点发布按钮可自动上传全部图片。");
+      return;
+    }
     const textOnly =
       this.settings.platform === "x" && this.previewMode === "thread";
     if (textOnly) this.fresh();
@@ -955,6 +1064,8 @@ export class Studio {
   ): Promise<BrowserArticle> {
     if (this.destroyed) throw new Error("墨稿窗口已关闭。");
     const draft = structuredClone(note || this.draft);
+    const mode = this.publishMode(platform);
+    const topicOverride = note ? undefined : this.topicOverride?.slice();
     if (!draft.markdown.trim())
       throw new Error("请先在 Obsidian 打开笔记，或在墨稿里读取一篇笔记。");
     const options = structuredClone({
@@ -973,12 +1084,30 @@ export class Studio {
       throw new Error(
         `还有 ${missing.length} 张图片未载入，请在墨稿中重试。${result.warnings[0] || ""}`,
       );
+    const html = renderDraft(draft, options, result.assets).html;
+    const details = this.postDetails(html);
+    const topics =
+      topicOverride ??
+      postContent(
+        new (
+          this.root.win as Window & { DOMParser: typeof DOMParser }
+        ).DOMParser().parseFromString(html, "text/html").body,
+      ).topics;
+    if (mode === "post" && (platform === "x" || platform === "xiaohongshu"))
+      validatePost(
+        platform,
+        draft.title,
+        details.body,
+        topics,
+        details.images.length,
+      );
     return {
+      ...(mode === "post" ? { mode, topics } : {}),
       format: "mogao-article",
       version: 1,
       title: draft.title,
       platform,
-      html: renderDraft(draft, options, result.assets).html,
+      html,
       source: note ? "note" : "studio",
     };
   }
