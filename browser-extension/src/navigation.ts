@@ -26,20 +26,44 @@ export function prepareDestination(
   if (expected === "x") {
     if (!doc.location.pathname.startsWith("/compose/articles"))
       return { navigate: destinations.x };
-    const create = [
+    const actions = [
       ...doc.querySelectorAll<HTMLElement>('button,[role="button"],a[href]'),
-    ].find(
+    ].filter(
       (el) =>
         visible(el) &&
-        /^(Create|Create article|Write an article|撰写文章|创建文章|新建文章|创建)$/i.test(
-          (
-            el.textContent ||
-            el.getAttribute("aria-label") ||
-            el.getAttribute("title") ||
-            ""
-          ).trim(),
-        ),
+        !el.hasAttribute("disabled") &&
+        el.getAttribute("aria-disabled") !== "true" &&
+        (!el.hasAttribute("href") ||
+          (() => {
+            try {
+              return (
+                new URL(el.getAttribute("href")!, doc.location.href).href ===
+                destinations.x
+              );
+            } catch {
+              return false;
+            }
+          })()),
     );
+    const labels = (el: HTMLElement) =>
+      [
+        el.getAttribute("aria-label"),
+        el.getAttribute("title"),
+        el.textContent,
+      ].map((value) => value?.trim() || "");
+    // Prefer the visible Write action. Translated text and icon labels are
+    // independent: whitespace/text inside an icon must not hide its aria-label.
+    const create =
+      actions.find((el) =>
+        labels(el).some((label) =>
+          /^(Write|Write an article|写文章|撰写文章)$/i.test(label),
+        ),
+      ) ||
+      actions.find((el) =>
+        labels(el).some((label) =>
+          /^(Create|Create article|创建文章|新建文章|创建|创造)$/i.test(label),
+        ),
+      );
     if (create && !created.has(doc)) {
       created.add(doc);
       create.click();

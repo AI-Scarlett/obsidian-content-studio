@@ -51,6 +51,7 @@ export interface Reply {
 export interface EditorDriver {
   cancel?(): void;
   ready?(): boolean;
+  imageIdentity?(candidate: HTMLImageElement): string | undefined;
   write(html: string, markers: string[]): Promise<void>;
   upload(image: InlineImage): Promise<void>;
   settle(image: InlineImage, candidate: HTMLImageElement): Promise<void>;

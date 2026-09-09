@@ -4,7 +4,11 @@ import { JSDOM } from "jsdom";
 import Draft from "draft-js";
 import type { EditorState } from "draft-js";
 const { EditorState, AtomicBlockUtils, convertToRaw, convertFromRaw } = Draft;
-import { DraftDriver, type DraftHandle } from "../src/platforms/draftjs";
+import {
+  DraftDriver,
+  hasMediaId,
+  type DraftHandle,
+} from "../src/platforms/draftjs";
 import { EditorSession } from "../src/editor";
 import { prepareArticle } from "../src/package";
 import { articleBlocks } from "../src/platforms/blocks";
@@ -16,6 +20,13 @@ function fixture(
   fail = false,
   pendingMedia = false,
   html?: string,
+  options: {
+    blob?: boolean;
+    remount?: boolean;
+    zhihuInput?: boolean;
+    zhihuModal?: boolean;
+    delayedId?: boolean;
+  } = {},
 ) {
   const dom = new JSDOM(
     '<textarea placeholder="标题 Title"></textarea><button aria-label="图片">图片</button><div class="public-DraftEditor-content" contenteditable="true"></div>',
@@ -33,12 +44,12 @@ function fixture(
   ];
   Object.defineProperty(win.HTMLImageElement.prototype, "complete", {
     get() {
-      return this.src.startsWith("https:");
+      return /^(https:|blob:)/.test(this.src);
     },
   });
   Object.defineProperty(win.HTMLImageElement.prototype, "naturalWidth", {
     get() {
-      return this.src.startsWith("https:") ? 750 : 0;
+      return /^(https:|blob:)/.test(this.src) ? 750 : 0;
     },
   });
   Object.defineProperty(win.HTMLInputElement.prototype, "files", {
@@ -63,6 +74,8 @@ function fixture(
       .getBlocksAsArray()
       .forEach((block) => {
         const el = win.document.createElement("div");
+        el.setAttribute("data-block", "true");
+        el.setAttribute("data-offset-key", `${block.getKey()}-0-0`);
         if (block.getType() === "atomic") {
           const entity = block.getEntityAt(0);
           const src = state.getCurrentContent().getEntity(entity).getData().src;
@@ -90,6 +103,7 @@ function fixture(
   handle.props.onChange = (state) => {
     const old = [...root.querySelectorAll("img")] as HTMLImageElement[];
     setState(state);
+    if (options.remount) return;
     const consumed = new Set<HTMLImageElement>();
     for (const img of [...root.querySelectorAll("img")] as HTMLImageElement[]) {
       const match = old.find((i) => i.src === img.src && !consumed.has(i));
@@ -110,7 +124,9 @@ function fixture(
     const src =
       platform === "zhihu"
         ? `https://pic-private.zhihu.com/test-${uploads}.png`
-        : `https://pbs.twimg.com/media/test-${uploads}.png`;
+        : options.blob
+          ? `blob:https://x.com/test-${uploads}`
+          : `https://pbs.twimg.com/media/test-${uploads}.png`;
     // The native uploader deliberately adds the atomic node at the end of the document.
     const state = EditorState.moveSelectionToEnd(handle.props.editorState);
     const content = state
@@ -118,7 +134,9 @@ function fixture(
       .createEntity(platform === "x" ? "MEDIA" : "IMAGE", "IMMUTABLE", {
         src,
         platformUploadId: `asset-${uploads}`,
-        ...(pendingMedia ? {} : { mediaId: String(1234567890000 + uploads) }),
+        ...(pendingMedia || options.delayedId
+          ? {}
+          : { mediaItems: [String(1234567890000 + uploads)] }),
       });
     handle.props.onChange(
       AtomicBlockUtils.insertAtomicBlock(
@@ -127,17 +145,75 @@ function fixture(
         " ",
       ),
     );
+    if (options.delayedId) {
+      const key = content.getLastCreatedEntityKey();
+      const id = String(1234567890000 + uploads);
+      win.setTimeout(() => {
+        const state = handle.props.editorState;
+        const updated = state
+          .getCurrentContent()
+          .mergeEntityData(key, { mediaItems: [id] });
+        handle.props.onChange(
+          EditorState.set(state, { currentContent: updated }),
+        );
+      }, 200);
+    }
   };
   root.__reactFiber$mogao = {
     stateNode: handle,
     return: { memoizedProps: { onFilesAdded: upload } },
   };
   win.document.querySelector("button").onclick = () => {
+    if (options.zhihuInput)
+      throw new Error(
+        "Do not open the material dialog when the native body input exists",
+      );
     const input = win.document.createElement("input");
     input.type = "file";
+    if (options.zhihuModal) {
+      const dialog = win.document.createElement("div");
+      dialog.className = "Modal";
+      dialog.textContent = "上传图片 本地图片上传 手机扫码上传";
+      input.accept = "image/*";
+      input.multiple = true;
+      dialog.append(input);
+      input.onchange = () => {
+        upload(input.files);
+        dialog.remove();
+      };
+      win.setTimeout(() => win.document.body.append(dialog), 30);
+      return;
+    }
     input.click();
     input.onchange = () => upload(input.files);
   };
+  if (options.zhihuInput) {
+    const wrapper = win.document.createElement("div");
+    wrapper.className = "PostEditor";
+    root.replaceWith(wrapper);
+    wrapper.append(root);
+    for (const accept of [
+      ".pdf,.png,.docx",
+      "image/webp,image/jpeg,image/png,.heic",
+    ]) {
+      const input = win.document.createElement("input");
+      input.type = "file";
+      input.multiple = true;
+      input.accept = accept;
+      input.onchange = () => {
+        assert.ok(accept.startsWith("image/"));
+        upload(input.files);
+      };
+      wrapper.append(input);
+    }
+    const cover = win.document.createElement("input");
+    cover.type = "file";
+    cover.accept = ".jpeg,.jpg,.png";
+    cover.onchange = () => {
+      throw new Error("Cover input must remain untouched");
+    };
+    win.document.body.append(cover);
+  }
   const plan = prepareArticle(
     {
       format: "mogao-article",
@@ -158,6 +234,72 @@ function fixture(
   );
   return { dom, win, root, handle, plan, session, uploads: () => uploads };
 }
+for (const options of [
+  { blob: true, remount: true, delayedId: true },
+  { zhihuInput: true },
+  { zhihuModal: true },
+]) {
+  const platform = "blob" in options ? "x" : "zhihu";
+  test(`${platform}: current native DOM route keeps three images in place ${JSON.stringify(options)}`, async () => {
+    const f = fixture(platform, false, false, undefined, options);
+    try {
+      const { images, ...body } = f.plan;
+      await f.session.begin(
+        body,
+        images.map((i) => i.marker),
+      );
+      for (const image of images) await f.session.image(image);
+      assert.match(await f.session.finish(), /3 张平台图片/);
+      assert.equal(f.uploads(), 3);
+      const content = f.handle.props.editorState.getCurrentContent();
+      const sequence = content
+        .getBlocksAsArray()
+        .filter((b) => b.getType() === "atomic" || b.getText().trim())
+        .map((b) => (b.getType() === "atomic" ? "[image]" : b.getText()));
+      assert.deepEqual(sequence, [
+        "开头",
+        "[image]",
+        "中间一",
+        "[image]",
+        "中间二",
+        "[image]",
+        "结尾",
+      ]);
+      assert.deepEqual(
+        convertToRaw(convertFromRaw(convertToRaw(content))),
+        convertToRaw(content),
+      );
+      if (options.blob)
+        assert.ok(
+          [...f.root.querySelectorAll("img")].every((i: any) =>
+            i.src.startsWith("blob:https://x.com/"),
+          ),
+        );
+    } finally {
+      f.session.cancel();
+      f.dom.window.close();
+    }
+  });
+}
+test("X blob previews still require a platform media ID and an exact native block binding", async () => {
+  const f = fixture("x", false, true, undefined, { blob: true });
+  try {
+    const { images, ...body } = f.plan;
+    await f.session.begin(
+      body,
+      images.map((i) => i.marker),
+    );
+    await assert.rejects(f.session.image(images[0]), /未在/);
+    assert.equal(f.uploads(), 1);
+    assert.ok(f.root.textContent.includes(images[0].marker));
+  } finally {
+    f.session.cancel();
+    f.dom.window.close();
+  }
+  assert.equal(hasMediaId({ mediaItems: ["1234567890123456789"] }), true);
+  assert.equal(hasMediaId({ width: 123456789, height: 987654321 }), false);
+  assert.equal(hasMediaId({ mediaItems: ["local-preview"] }), false);
+});
 for (const platform of ["zhihu", "x"] as const) {
   test(`${platform}: native upload preserves three positions, platform metadata and separate title`, async () => {
     const f = fixture(platform);

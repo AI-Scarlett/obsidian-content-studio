@@ -8,6 +8,55 @@ export function imageFile(win: Window & typeof globalThis, image: InlineImage) {
   return new win.File([bytes], image.name, { type: image.mime });
 }
 
+/** The current Zhihu body editor exposes a dedicated multiple-image input beside
+ * its Draft root. Exclude document import and cover inputs, and never choose an
+ * arbitrary file input elsewhere in the page or the material library. */
+export function zhihuImageInput(
+  root: HTMLElement,
+): HTMLInputElement | undefined {
+  const editor = root.closest(".PostEditor");
+  if (!editor) return;
+  const inputs = [
+    ...editor.querySelectorAll<HTMLInputElement>(
+      'input[type="file"][multiple]',
+    ),
+  ].filter((input) => {
+    const types = input.accept
+      .toLowerCase()
+      .split(",")
+      .map((type) => type.trim())
+      .filter(Boolean);
+    return (
+      !input.disabled &&
+      types.length > 0 &&
+      types.every((type) =>
+        /^image\/(?:\*|[a-z0-9.+-]+)$|^\.(?:png|jpe?g|gif|webp|avif|heic|heif)$/.test(
+          type,
+        ),
+      )
+    );
+  });
+  return inputs.length === 1 ? inputs[0] : undefined;
+}
+
+export async function uploadToInput(
+  win: Window & typeof globalThis,
+  input: HTMLInputElement,
+  file: File,
+  isActive: () => boolean,
+) {
+  if (!isActive()) throw new Error("同步已停止，当前草稿保留。");
+  const data = new win.DataTransfer();
+  data.items.add(file);
+  input.value = "";
+  input.files = data.files;
+  await Promise.resolve();
+  if (!isActive()) throw new Error("同步已停止，当前草稿保留。");
+  input.dispatchEvent(new win.Event("input", { bubbles: true }));
+  if (!isActive()) throw new Error("同步已停止，当前草稿保留。");
+  input.dispatchEvent(new win.Event("change", { bubbles: true }));
+}
+
 /** Supply this operation's bytes to the platform-created picker, without opening an OS dialog.
  * Runs in the page's MAIN world so detached inputs created by the toolbar are intercepted too.
  * The prototype changes exist only while invoking the one verified picture control.
@@ -18,6 +67,7 @@ export async function uploadThroughPicker(
   activate: () => void,
   timeout = 4000,
   isActive: () => boolean = () => true,
+  resolveInput?: () => HTMLInputElement | undefined,
 ) {
   const proto = win.HTMLInputElement.prototype;
   const originalClick = proto.click;
@@ -56,7 +106,13 @@ export async function uploadThroughPicker(
   try {
     activate();
     const until = Date.now() + timeout;
-    while (!completed && Date.now() < until && isActive()) await delay(win, 30);
+    while (!completed && Date.now() < until && isActive()) {
+      if (!input) {
+        const resolved = resolveInput?.();
+        if (resolved) fill(resolved);
+      }
+      await delay(win, 30);
+    }
     if (!isActive()) throw new Error("同步已停止，当前草稿保留。");
     if (!completed)
       throw new Error("平台图片按钮未启动上传；已停止同步，当前草稿保留。");

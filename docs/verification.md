@@ -1,10 +1,14 @@
-# Verification scope for 0.1.10 preview / browser assistant 0.3.3
+# Verification scope for 0.1.11 preview / browser assistant 0.3.4
+
+## Zhihu and X image routes
+
+Live inspection found a Zhihu material-library dialog with a separate image input; the editor also exposes its own dedicated body-image input. X had one decoded blob preview at the end and all three markers remaining. Opening the saved X draft in a fresh tab retained that image with a new blob URL. The native X create control opened a blank editor, which was subsequently removed. The 0.3.4 corrections and their limits are recorded in [0.1.11 notes](releases/0.1.11.md). Complete multi-image delivery by the new adapter is not yet live-verified. Extension-management and upload automation restrictions have not been bypassed.
 
 ## Browser toolbar wakeup
 
 The new icon route requests `obsidian://content-studio`; the plugin waits for workspace restoration and preserves existing workbench edits. 98 plugin tests and 48 companion tests pass. Native settings show 0.1.10 enabled; a newly opened workbench has the same complete Markdown and title as before the update, with 3/3 images loaded. Companion 0.3.3 files are deployed but its browser reload and toolbar wakeup have not been verified. A browser URI-link attempt produced no confirmed native transition. Cold application startup remains unverified. See [0.1.10 notes](releases/0.1.10.md).
 
-The current build is checked by 98 plugin tests and 48 companion tests, plus zero-warning Obsidian ESLint, CSS lint, TypeScript and production builds. Run `npm run verify`, `npm run verify:extension`, then `npm run package`.
+The current build is checked by 98 plugin tests and 54 companion tests, plus zero-warning Obsidian ESLint, CSS lint, TypeScript and production builds. Run `npm run verify`, `npm run verify:extension`, then `npm run package`.
 
 The companion tests serialize every Draft.js state update, round-trip title/body/media documents and link ranges with emoji, reject DOM seed writes, and exercise the current Xiaohongshu image-array contract with upload completion preceding node insertion. Failure, cancellation, duplicate uploads, old protocols, draft preservation and no final publication remain covered. Uploaders are test substitutes; the checks do not establish real-account success.
 

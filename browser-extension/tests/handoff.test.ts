@@ -112,3 +112,43 @@ test("X creates only a new Article and leaves login and final publication contro
     login.window.close();
   }
 });
+
+test("X recognizes Write, Chinese write actions and icon labels independently from whitespace", () => {
+  for (const body of [
+    '<a href="/compose/articles">Write</a>',
+    '<a href="/compose/articles">写文章</a>',
+    '<button aria-label="create">  </button>',
+    '<button title="创建文章"><svg> </svg></button>',
+  ]) {
+    const dom = page(
+      body +
+        '<button>Publish</button><a href="/compose/articles/edit/123">Write</a>',
+      destinations.x,
+    );
+    const clicked: Element[] = [];
+    dom.window.document.addEventListener("click", (e) => {
+      e.preventDefault();
+      clicked.push(e.target as Element);
+    });
+    prepareDestination(dom.window.document, "x");
+    prepareDestination(dom.window.document, "x");
+    assert.equal(clicked.length, 1);
+    assert.equal(clicked[0], dom.window.document.body.firstElementChild);
+    dom.window.close();
+  }
+});
+test("X waits until create is enabled and then clicks only once", () => {
+  const dom = page(
+    '<button aria-label="create" disabled> </button><button>Publish</button>',
+    destinations.x,
+  );
+  let clicks = 0;
+  dom.window.document.addEventListener("click", () => clicks++);
+  prepareDestination(dom.window.document, "x");
+  assert.equal(clicks, 0);
+  dom.window.document.querySelector("button")!.disabled = false;
+  prepareDestination(dom.window.document, "x");
+  prepareDestination(dom.window.document, "x");
+  assert.equal(clicks, 1);
+  dom.window.close();
+});

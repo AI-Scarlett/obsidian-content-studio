@@ -14,7 +14,14 @@ import type {
 } from "draft-js";
 import type { EditorDriver, InlineImage } from "../types";
 import { articleBlocks } from "./blocks";
-import { delay, imageFile, pictureButton, uploadThroughPicker } from "./upload";
+import {
+  delay,
+  imageFile,
+  pictureButton,
+  uploadThroughPicker,
+  zhihuImageInput,
+  uploadToInput,
+} from "./upload";
 
 export interface DraftHandle {
   props: { editorState: EditorState; onChange: (state: EditorState) => void };
@@ -84,10 +91,13 @@ export function markerBlock(content: ContentState, marker: string) {
 
 // xPoster identifies completed uploads through the MEDIA entity's assigned media ID.
 // Only inspect known media containers/keys; dimensions or unrelated numeric fields are not IDs.
-export function hasMediaId(value: unknown, depth = 0): boolean {
-  if (!value || typeof value !== "object" || depth > 5) return false;
+export function mediaId(value: unknown, depth = 0): string | undefined {
+  if (depth > 5) return;
+  if (typeof value === "string" && /^(?:\d+_)?\d{8,}$/.test(value))
+    return value;
+  if (!value || typeof value !== "object") return;
   if (Array.isArray(value))
-    return value.some((item) => hasMediaId(item, depth + 1));
+    return value.map((item) => mediaId(item, depth + 1)).find(Boolean);
   const data = value as Record<string, unknown>;
   for (const key of [
     "mediaId",
@@ -101,7 +111,8 @@ export function hasMediaId(value: unknown, depth = 0): boolean {
     "id",
     "rest_id",
   ])
-    if (/^(?:\d+_)?\d{8,}$/.test(String(data[key] || ""))) return true;
+    if (/^(?:\d+_)?\d{8,}$/.test(String(data[key] || "")))
+      return String(data[key]);
   return [
     "mediaItems",
     "media_items",
@@ -111,7 +122,12 @@ export function hasMediaId(value: unknown, depth = 0): boolean {
     "upload",
     "uploadResult",
     "result",
-  ].some((key) => hasMediaId(data[key], depth + 1));
+  ]
+    .map((key) => mediaId(data[key], depth + 1))
+    .find(Boolean);
+}
+export function hasMediaId(value: unknown): boolean {
+  return !!mediaId(value);
 }
 function push(handle: DraftHandle, content: ContentState) {
   const state = handle.props.editorState;
@@ -152,6 +168,29 @@ export class DraftDriver implements EditorDriver {
     const entity = content.getEntity(uploaded[0].getEntityAt(0));
     return entity.getType() === "MEDIA" && hasMediaId(entity.getData());
   }
+  imageIdentity(candidate: HTMLImageElement): string | undefined {
+    if (this.platform !== "x") return;
+    const element = candidate.closest('[data-block="true"]');
+    const key = element?.getAttribute("data-offset-key")?.split("-")[0];
+    if (
+      !key ||
+      !element ||
+      !this.root.contains(element) ||
+      element.querySelectorAll("img").length !== 1
+    )
+      return;
+    const content = this.handle().props.editorState.getCurrentContent();
+    const block = content.getBlockMap().get(key);
+    if (!block || block.getType() !== "atomic") return;
+    const entityKey = block.getEntityAt(0);
+    if (entityKey === null || entityKey === undefined) return;
+    const entity = content.getEntity(entityKey);
+    const id =
+      entity.getType() === "MEDIA" ? mediaId(entity.getData()) : undefined;
+    // X retains a blob preview even after upload and when reopening saved drafts.
+    // Bind it to a native media ID and block instead of treating any blob as uploaded.
+    return id ? `x-media:${key}:${id}` : undefined;
+  }
   constructor(
     private root: HTMLElement,
     private platform: "zhihu" | "x",
@@ -169,9 +208,10 @@ export class DraftDriver implements EditorDriver {
   }
   async write(html: string, markers: string[]) {
     if (markers.length) {
-      if (this.platform === "zhihu")
-        this.button = await pictureButton(this.root.ownerDocument, "zhihu");
-      else if (!uploadHandler(this.root))
+      if (this.platform === "zhihu") {
+        if (!zhihuImageInput(this.root))
+          this.button = await pictureButton(this.root.ownerDocument, "zhihu");
+      } else if (!uploadHandler(this.root))
         throw new Error(
           "X Articles 图片上传功能尚未就绪，请确认正在编辑长文。",
         );
@@ -259,13 +299,38 @@ export class DraftDriver implements EditorDriver {
       if (!handler) throw new Error("X 图片上传处理器已关闭。");
       handler([file]);
     } else {
+      const input = zhihuImageInput(this.root);
+      if (input) {
+        await uploadToInput(this.win, input, file, () => !this.stopped);
+        return;
+      }
       if (!this.button?.isConnected) throw new Error("知乎图片工具栏已关闭。");
+      const existingDialogs = new Set(
+        this.root.ownerDocument.querySelectorAll('.Modal,[role="dialog"]'),
+      );
       await uploadThroughPicker(
         this.win,
         file,
         () => this.button!.click(),
         4000,
         () => !this.stopped,
+        () => {
+          const dialogs = [
+            ...this.root.ownerDocument.querySelectorAll<HTMLElement>(
+              '.Modal,[role="dialog"]',
+            ),
+          ].filter(
+            (el) =>
+              !existingDialogs.has(el) &&
+              el.getClientRects().length &&
+              el.textContent?.includes("本地图片上传"),
+          );
+          if (dialogs.length !== 1) return;
+          const inputs = dialogs[0].querySelectorAll<HTMLInputElement>(
+            'input[type="file"][accept="image/*"][multiple]',
+          );
+          return inputs.length === 1 ? inputs[0] : undefined;
+        },
       );
     }
   }

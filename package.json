@@ -1,6 +1,6 @@
 {
   "name": "obsidian-content-studio",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "private": true,
   "description": "Turn Obsidian notes into styled WeChat, Zhihu, Xiaohongshu and X drafts.",
   "type": "module",

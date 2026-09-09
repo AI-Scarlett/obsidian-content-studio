@@ -208,6 +208,16 @@ export class EditorSession {
         "同步已停止或编辑器已关闭；当前草稿保留，请检查已同步部分。",
       );
   }
+  private imageIdentity(image: HTMLImageElement): string | undefined {
+    const src = image.getAttribute("src") || "";
+    if (!image.complete || !image.naturalWidth) return;
+    if (this.platform === "x") {
+      if (!platformImage(src, "x") && !src.startsWith("blob:https://x.com/"))
+        return;
+      return this.driver?.imageIdentity?.(image);
+    }
+    return platformImage(src, this.platform) ? src : undefined;
+  }
   async begin(plan: Omit<ImportPlan, "images">, markers: string[]) {
     if (this.plan || this.stopped)
       throw new Error("本次同步已经开始，请勿重复同步。");
@@ -258,6 +268,9 @@ export class EditorSession {
     )
       throw new Error("图片顺序不一致，已停止。");
     const before = [...this.root.querySelectorAll("img")];
+    const beforeIdentities = new Set(
+      before.map((img) => this.imageIdentity(img)),
+    );
     await this.driver.upload(image);
     const until = Date.now() + this.timeout;
     let stableUrl = "",
@@ -270,15 +283,18 @@ export class EditorSession {
         throw new Error(
           "平台插入了多余图片，已停止；请检查当前草稿，避免重复上传。",
         );
-      const added = all.filter((img) => !before.includes(img));
+      const added = all.filter((img) =>
+        this.platform === "x"
+          ? !!this.imageIdentity(img) &&
+            !beforeIdentities.has(this.imageIdentity(img))
+          : !before.includes(img),
+      );
       const candidate = added.length === 1 ? added[0] : undefined;
-      const src = candidate?.getAttribute("src") || "";
+      const src = candidate ? this.imageIdentity(candidate) : undefined;
       if (
         !candidate ||
         all.length !== before.length + 1 ||
-        !platformImage(src, this.platform) ||
-        !candidate.complete ||
-        !candidate.naturalWidth ||
+        !src ||
         (this.driver.ready && !this.driver.ready())
       ) {
         stableUrl = "";
@@ -296,7 +312,7 @@ export class EditorSession {
       const expected = [...this.urls, src];
       if (
         imgs.length !== expected.length ||
-        expected.some((url, i) => imgs[i].getAttribute("src") !== url)
+        expected.some((url, i) => this.imageIdentity(imgs[i]) !== url)
       )
         throw new Error("图片在平台文档中的顺序不一致，已停止同步。");
       if ((this.root.textContent || "").includes(image.marker))
@@ -315,12 +331,7 @@ export class EditorSession {
     const imgs = [...this.root.querySelectorAll("img")];
     if (
       imgs.length !== this.urls.length ||
-      imgs.some(
-        (img, i) =>
-          img.getAttribute("src") !== this.urls[i] ||
-          !img.complete ||
-          !img.naturalWidth,
-      )
+      imgs.some((img, i) => this.imageIdentity(img) !== this.urls[i])
     )
       throw new Error("最终图片数量、顺序或显示状态不一致。");
     if (
