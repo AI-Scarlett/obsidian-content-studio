@@ -9,7 +9,7 @@ const runId = crypto.randomUUID();
 const headers = {
   "X-Mogao-Extension": chrome.runtime.id,
   "X-Mogao-Run": runId,
-  "X-Mogao-Protocol": "3",
+  "X-Mogao-Protocol": "4",
   "Content-Type": "application/json",
 };
 const names = {
@@ -54,10 +54,10 @@ async function pageCommand(frameId: number, message: Command): Promise<Reply> {
     func: async (owner: string, command: Command): Promise<Reply> => {
       const runtime = (
         globalThis as typeof globalThis & {
-          __mogaoArticleV3?: import("./content").MainRuntime;
+          __mogaoArticleV4?: import("./content").MainRuntime;
         }
-      ).__mogaoArticleV3;
-      if (runtime?.version !== 3)
+      ).__mogaoArticleV4;
+      if (runtime?.version !== 4)
         return { ok: false, error: "平台适配器未加载，请更新墨稿扩展。" };
       return runtime.dispatch(owner, command);
     },
@@ -155,6 +155,7 @@ async function waitForEditor(plan: ImportPlan) {
   throw new Error("等待平台登录或编辑器超时。请回到墨稿再次点击发布。");
 }
 async function run() {
+  q("version").textContent = chrome.runtime.getManifest().version;
   if (!source) {
     q("intro").textContent =
       "扩展已安装。回到 Obsidian 墨稿，选择平台并点击“发布到平台”即可。";

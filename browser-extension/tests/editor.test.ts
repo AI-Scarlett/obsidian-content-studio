@@ -1,13 +1,31 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { JSDOM } from "jsdom";
-import { Editor } from "@tiptap/core";
+import { Editor, Node as TiptapNode } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
 import { EditorSession, findEditor } from "../src/editor";
 import { prepareArticle } from "../src/package";
 const png =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aD1sAAAAASUVORK5CYII=";
+
+// Contract observed in the site's current long-form editor: one atomic block
+// stores its image in attrs.imgs, including upload progress and dimensions.
+const GalleryImage = TiptapNode.create({
+  name: "image",
+  group: "block",
+  atom: true,
+  addAttributes: () => ({ imgs: { default: [] } }),
+  renderHTML: ({ node }) => [
+    "div",
+    { "data-dom-type": "image" },
+    ...node.attrs.imgs.map((img: { src: string }) => [
+      "div",
+      { "data-dom-type": "img-wrapper" },
+      ["img", { src: img.src, "data-dom-type": "img" }],
+    ]),
+  ],
+});
 
 function fixture(
   options: {
@@ -16,6 +34,9 @@ function fixture(
     blob?: boolean;
     duplicate?: boolean;
     sameUrl?: boolean;
+    gallery?: boolean;
+    nativePosition?: boolean;
+    threeImages?: boolean;
   } = {},
 ) {
   const dom = new JSDOM(
@@ -124,7 +145,7 @@ function fixture(
   let uploads = 0;
   const editor = new Editor({
     element: win.document.getElementById("editor")!,
-    extensions: [StarterKit, Image],
+    extensions: [StarterKit, options.gallery ? GalleryImage : Image],
     content: options.content || "",
   });
   win.document.querySelector("button")!.addEventListener("click", () => {
@@ -141,22 +162,56 @@ function fixture(
       const id = uploads;
       // Deliberately append at the wrong place: the driver must relocate the model node.
       const count = options.duplicate ? 2 : 1;
-      for (let i = 0; i < count; i++)
-        editor.commands.insertContentAt(editor.state.doc.content.size, {
-          type: "image",
-          attrs: { src: `blob:test-${id}-${i}` },
-        });
+      for (let i = 0; i < count; i++) {
+        const src = `blob:test-${id}-${i}`;
+        editor.commands.insertContentAt(
+          options.nativePosition
+            ? editor.state.selection.to
+            : editor.state.doc.content.size,
+          {
+            type: "image",
+            attrs: options.gallery
+              ? {
+                  imgs: [
+                    {
+                      src,
+                      percent: 0,
+                      width: 410,
+                      height: 230,
+                      desc: "",
+                      assetId: `asset-${id}`,
+                    },
+                  ],
+                }
+              : { src },
+          },
+        );
+      }
       if (!options.blob)
         win.setTimeout(() => {
           editor.state.doc.descendants((node, pos) => {
             if (
               node.type.name === "image" &&
-              String(node.attrs.src).startsWith(`blob:test-${id}-`)
+              String(
+                options.gallery ? node.attrs.imgs[0]?.src : node.attrs.src,
+              ).startsWith(`blob:test-${id}-`)
             )
               editor.view.dispatch(
                 editor.state.tr.setNodeMarkup(pos, undefined, {
                   ...node.attrs,
-                  src: `https://sns-img.xhscdn.com/test-${options.sameUrl ? 1 : id}.png`,
+                  ...(options.gallery
+                    ? {
+                        imgs: [
+                          {
+                            ...node.attrs.imgs[0],
+                            src: `https://sns-img.xhscdn.com/test-${options.sameUrl ? 1 : id}.png`,
+                            percent: "100",
+                          },
+                        ],
+                      }
+                    : {
+                        src: `https://sns-img.xhscdn.com/test-${options.sameUrl ? 1 : id}.png`,
+                      }),
                 }),
               );
           });
@@ -172,7 +227,7 @@ function fixture(
       version: 1,
       title: "整篇图文测试",
       platform: "xiaohongshu",
-      html: `<h2>开头标题</h2><p>前文</p><img src="${png}"><p>图注与中间</p><img src="${png}"><p>结尾</p>`,
+      html: `<h2>开头标题</h2><p>前文</p><img src="${png}"><p>图注与中间</p><img src="${png}">${options.threeImages ? `<p>第三张之前</p><img src="${png}">` : ""}<p>结尾</p>`,
     },
     win as any,
   );
@@ -238,6 +293,41 @@ test("real Tiptap document receives whole body, file uploads in place and separa
     f.close();
   }
 });
+for (const sameUrl of [false, true]) {
+  test(`Xiaohongshu imgs array preserves three native image blocks and upload metadata (same URL: ${sameUrl})`, async () => {
+    const f = fixture({
+      gallery: true,
+      nativePosition: true,
+      threeImages: true,
+      sameUrl,
+    });
+    try {
+      await f.begin();
+      for (const image of f.plan.images) await f.session.image(image);
+      assert.match(await f.session.finish(), /3 张平台图片/);
+      const json = structuredClone(f.editor.getJSON());
+      const images = json.content!.filter((n) => n.type === "image");
+      assert.equal(f.uploads(), 3);
+      assert.deepEqual(
+        images.map((n) => n.attrs!.imgs[0].assetId),
+        ["asset-1", "asset-2", "asset-3"],
+      );
+      assert.ok(
+        images.every(
+          (n) =>
+            n.attrs!.imgs[0].percent === "100" &&
+            n.attrs!.imgs[0].width === 410,
+        ),
+      );
+      assert.equal(JSON.stringify(json).includes("MOGAOIMAGE"), false);
+      f.editor.commands.setContent(json);
+      assert.deepEqual(structuredClone(f.editor.getJSON()), json);
+      assert.equal(f.target.root.querySelectorAll("img").length, 3);
+    } finally {
+      f.close();
+    }
+  });
+}
 test("existing drafts are rejected without mutating editor model", async () => {
   const f = fixture({ content: "<p>已有草稿</p>" });
   try {

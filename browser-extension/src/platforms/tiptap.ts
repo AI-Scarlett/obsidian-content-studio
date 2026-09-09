@@ -73,14 +73,26 @@ export class TiptapDriver implements EditorDriver {
     const src = candidate.getAttribute("src");
     const nodes: { node: PMNode; pos: number }[] = [];
     this.editor.state.doc.descendants((node, pos) => {
-      if (node.attrs.src === src) nodes.push({ node, pos });
+      // Xiaohongshu stores an atomic image block as attrs.imgs[0], not attrs.src.
+      // Retain the whole uploaded block: imgs also carries size, caption and
+      // upload completion metadata required when the platform saves the draft.
+      const imgs: unknown = node.attrs.imgs;
+      const item: unknown =
+        Array.isArray(imgs) && imgs.length === 1 ? imgs[0] : undefined;
+      const source =
+        item && typeof item === "object" && "src" in item
+          ? item.src
+          : node.attrs.src;
+      if (node.isBlock && node.isAtom && source === src)
+        nodes.push({ node, pos });
     });
-    const uploaded = nodes.find((n) => {
+    const matches = nodes.filter((n) => {
       const dom = this.editor.view.nodeDOM(n.pos);
       return dom === candidate || dom?.contains(candidate);
     });
-    if (!uploaded || !uploaded.node.isBlock)
+    if (matches.length !== 1)
       throw new Error("小红书上传结果无法唯一对应到正文图片，已停止。");
+    const uploaded = matches[0];
     // Move the uploaded document node, with all its platform metadata, to the marker block.
     const tr = this.editor.state.tr.delete(
       uploaded.pos,

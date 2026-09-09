@@ -1,14 +1,18 @@
-# Verification scope for 0.1.7 preview / browser assistant 0.3.0
+# Verification scope for 0.1.8 preview / browser assistant 0.3.1
 
-The current build passes 95 plugin tests with zero-warning Obsidian ESLint, CSS lint, TypeScript and production build checks. The companion adds 41 tests and its own TypeScript/build checks. Run `npm run verify`, `npm run verify:extension`, then `npm run package`.
+The current build passes 95 plugin tests with zero-warning Obsidian ESLint, CSS lint, TypeScript and production build checks. The companion adds 43 tests and its own TypeScript/build checks. Run `npm run verify`, `npm run verify:extension`, then `npm run package`.
 
 The new checks cover platform-specific media delivery: three-image Tiptap and Draft.js document order; preservation of uploaded media metadata; title-first writing; duplicate and unresolved uploads; X media IDs in addition to decoded images; cancellation and native file-picker method restoration; old-extension protocol rejection before claiming a task; login preservation; X Create-only navigation; and WeChat actual-file request payloads, exact returned draft navigation, and no retry after uncertain draft creation. Network and uploader substitutes are used. Passing these tests does not establish that a live account accepted or saved the article.
 
-The 0.1.7 source and companion folder are intended for local preview installation, preserving plugin settings and source notes. Reloading installed runtimes must be checked separately from file hashes. Browser tool policy blocked extension management, companion pages and the WeChat editor in this session, so automated runtime reload and real-platform acceptance remain unverified. No final publication is performed. The preview does not replace the marketplace release until platform acceptance. See [adapter research and implementation](publishing-adapter-research.md) and [release notes](releases/0.1.7.md).
+The 0.1.8 plugin files and companion folder have been deployed locally, preserving plugin settings and source notes. Obsidian's plugin settings showed version 0.1.8 and the plugin was enabled after reloading. Reloading installed runtimes must be checked separately from file hashes. Browser tool policy blocked extension management, companion pages and the WeChat editor in this session, so the browser companion's runtime reload and real-platform acceptance remain unverified. No final publication is performed. The preview does not replace the marketplace release until platform acceptance. See [adapter research and implementation](publishing-adapter-research.md) and [release notes](releases/0.1.8.md).
+
+## Xiaohongshu first-image regression (0.1.8)
+
+The current platform image node is an atomic block with `attrs.imgs`, not the standard Tiptap Image extension's `attrs.src`. Two new three-image regressions reproduced the exact placement failure in 0.3.0, then passed with 0.3.1, including repeated CDN URLs and retention of upload metadata after a document JSON round trip. Public platform script inspection establishes the schema contract, not successful execution of the complete companion in the live account. The attempted synthetic native upload was blocked because Chrome's automation extension lacks file URL access. See [0.1.8 notes](releases/0.1.8.md).
 
 ## Historical 0.1.4 checks
 
-The following observations apply to the earlier build and are retained as historical evidence, not as fresh 0.1.7 acceptance.
+The following observations apply to the earlier build and are retained as historical evidence, not as fresh 0.1.8 acceptance.
 
 `npm run verify` runs the official Obsidian ESLint recommended rules with zero warnings, conservative Chrome 120 CSS compatibility checks, TypeScript, 80 offline tests and a production bundle build. `npm run package` validates and packages the three plugin files.
 

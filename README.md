@@ -4,7 +4,7 @@ English | [简体中文](README.zh-CN.md)
 
 Format Obsidian notes for WeChat Official Accounts, Zhihu, Xiaohongshu and X. Choose one of six built-in templates, adjust typography and colors, or learn reusable styles from an article URL. The interface is currently in Simplified Chinese.
 
-Desktop only. This branch: 0.1.7 preview build with browser assistant 0.3.0. Requires Obsidian 1.8.7 or later; earlier native validation used 1.13.7. Formatting preserves your source text and runs locally. No AI account, API key or automatic publishing is required.
+Desktop only. This branch: 0.1.8 preview build with browser assistant 0.3.1. Requires Obsidian 1.8.7 or later; earlier native validation used 1.13.7. Formatting preserves your source text and runs locally. No AI account, API key or automatic publishing is required.
 
 ## Features
 
@@ -81,7 +81,7 @@ npm run verify:extension
 npm run package
 ```
 
-`npm run verify` includes the official Obsidian ESLint recommended rules (zero warnings required), CSS lint, type checks, and 95 regression tests. `npm run verify:extension` adds 41 browser delivery tests, including real Tiptap/Draft.js models and offline WeChat contracts; these are not live platform acceptance. CSS is also checked against a conservative Chrome 120 compatibility profile. The development browser prototype was removed from the plugin source in 0.1.2; run the workbench inside Obsidian to test actual Vault behavior.
+`npm run verify` includes the official Obsidian ESLint recommended rules (zero warnings required), CSS lint, type checks, and 95 regression tests. `npm run verify:extension` adds 43 browser delivery tests, including real Tiptap/Draft.js models and offline WeChat contracts; these are not live platform acceptance. CSS is also checked against a conservative Chrome 120 compatibility profile. The development browser prototype was removed from the plugin source in 0.1.2; run the workbench inside Obsidian to test actual Vault behavior.
 
 Releases are built from version tags by [GitHub Actions](https://github.com/AI-Scarlett/obsidian-content-studio/actions/workflows/release.yml). Only the three supported plugin files are attached to a Release; optional ZIP/checksum packages are available as Actions artifacts or via `npm run package`. The workflow generates GitHub build-provenance attestations for all three release files. After downloading them, verify provenance with:
 
@@ -103,4 +103,4 @@ MIT © 2026 AI-Scarlett. See [LICENSE](LICENSE) and [third-party notices](THIRD_
 
 Start in Mogao with **发布到平台**. The extension automatically opens the selected platform, waits for login, and synchronizes the current article with inline image uploads and separate title. Missing extensions lead to installation onboarding with a bundled download. [Installation, permissions and validation limits](browser-extension/README.md). Full real-platform extension acceptance remains pending.
 
-The 0.1.7 preview bundles browser assistant 0.3.0, with platform-specific media and draft adapters. Existing unpacked extension installations must be reloaded once after updating their files. See [the release notes](docs/releases/0.1.7.md) and [browser assistant documentation](browser-extension/README.md) for current validation boundaries.
+The 0.1.8 preview bundles browser assistant 0.3.1, with platform-specific media and draft adapters. Existing unpacked extension installations must be reloaded once after updating their files. See [the release notes](docs/releases/0.1.8.md) and [browser assistant documentation](browser-extension/README.md) for current validation boundaries.

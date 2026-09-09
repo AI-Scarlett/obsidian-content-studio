@@ -22,7 +22,7 @@ async function fixture() {
   const headers = {
     "X-Mogao-Extension": extensionId,
     "X-Mogao-Run": randomUUID(),
-    "X-Mogao-Protocol": "3",
+    "X-Mogao-Protocol": "4",
     Origin: `chrome-extension://${extensionId}`,
     "Content-Type": "application/json",
   };
@@ -202,7 +202,15 @@ test("old extension cannot claim a new adapter job; the updated extension can re
     const { "X-Mogao-Protocol": _protocol, ...old } = f.headers;
     const response = await fetch(f.endpoint, { headers: old });
     assert.equal(response.status, 426);
-    assert.match((await response.json()).error, /0\.3\.0/);
+    assert.equal(
+      (
+        await fetch(f.endpoint, {
+          headers: { ...old, "X-Mogao-Protocol": "3" },
+        })
+      ).status,
+      426,
+    );
+    assert.match((await response.json()).error, /0\.3\.1/);
     assert.equal(
       (
         await fetch(f.endpoint, {
