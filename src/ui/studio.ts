@@ -188,7 +188,7 @@ export class Studio {
       <div class="mg-workbar"><div class="mg-view-modes" aria-label="工作区模式"><button data-view="edit">编辑</button><button data-view="preview">预览</button><button data-view="split">对照</button></div><span class="mg-source">选择一篇笔记开始</span><span class="mg-counts"></span></div>
       <main class="mg-workspace"><section class="mg-writing" aria-label="编辑排版稿"><label class="mg-title-field">标题<input class="mg-title-input" placeholder="文章标题" maxlength="300"></label><label class="mg-body-label" for="mg-body-${crypto.randomUUID()}">正文 <span>Markdown · 仅编辑排版稿，不改原笔记</span></label><textarea class="mg-markdown-input" aria-label="正文 Markdown" spellcheck="false" placeholder="读取笔记，或在这里粘贴 Markdown 开始写作…"></textarea></section>
       <section class="mg-canvas" aria-label="图文预览"><div class="mg-canvas-toolbar"><span>图文预览</span><div class="mg-preview-modes"><button data-mode="article">排版</button><button data-mode="thread">串文</button><button data-mode="cards">卡片</button></div></div><div class="mg-image-strip" aria-label="笔记图片" hidden></div><div class="mg-preview-scroll"><div class="mg-preview"></div></div></section></main>
-      <section class="mg-output-area"><div class="mg-post-options" hidden><label>发布类型 <select class="mg-publish-mode" aria-label="发布类型"><option value="article">长文</option><option value="post">普通图文</option></select></label><label class="mg-topics-field" hidden>话题 <input class="mg-topics-input" aria-label="发布话题" placeholder="#话题，用空格分隔"></label></div><div class="mg-publish-actions"><button data-action="copy-title" class="mg-button">复制标题</button><button data-action="copy" class="mg-button">复制正文</button><button data-action="publish-browser" class="mg-button mg-primary">发布到公众号</button></div><p class="mg-platform-hint"></p><details class="mg-output-details"><summary><span class="mg-image-status"></span></summary><div class="mg-warnings" aria-live="polite"></div><button data-action="images" class="mg-text-button">重新载入图片</button><button data-action="export" class="mg-text-button">备份完整内容包</button><button data-action="publish" class="mg-text-button">导出 Word 图文</button><button data-action="copy-images" class="mg-text-button">单独复制图片</button></details></section>
+      <section class="mg-output-area"><div class="mg-post-options" hidden><label class="mg-topics-field">图文话题 <input class="mg-topics-input" aria-label="发布话题" placeholder="#话题，用空格分隔"></label></div><div class="mg-publish-actions"><button data-action="copy-title" class="mg-button">复制标题</button><button data-action="copy" class="mg-button">复制正文</button><button data-action="publish-browser" class="mg-button mg-primary">发布到公众号</button><button data-action="publish-post" class="mg-button mg-primary" hidden>发布图文</button></div><p class="mg-platform-hint"></p><details class="mg-output-details"><summary><span class="mg-image-status"></span></summary><div class="mg-warnings" aria-live="polite"></div><button data-action="images" class="mg-text-button">重新载入图片</button><button data-action="export" class="mg-text-button">备份完整内容包</button><button data-action="publish" class="mg-text-button">导出 Word 图文</button><button data-action="copy-images" class="mg-text-button">单独复制图片</button></details></section>
       <div class="mg-drawer-backdrop" hidden><aside class="mg-drawer" aria-label="模板与样式"><header><h2>模板与样式</h2><button data-action="close-appearance" class="mg-button">完成</button></header><section class="mg-settings"><div class="mg-section-title"><h2>微调样式</h2><button data-action="reset" class="mg-text-button">重置</button></div><label class="mg-field">正文字号 <span class="mg-font-value"></span><input class="mg-font-input" type="range" min="12" max="24" step="1" value="16"></label><label class="mg-color-field">主题颜色<input class="mg-color-input" type="color" value="#3d6254"></label><label class="mg-check"><input class="mg-footnotes" type="checkbox"> 公众号文末保留链接</label><div class="mg-template-controls"><button data-action="save-template" class="mg-text-button">存为新模板</button><button data-action="export-template" class="mg-text-button">导出模板</button><button data-action="delete-template" class="mg-text-button mg-danger">删除</button></div><div class="mg-template-source"></div></section><section class="mg-library"><div class="mg-section-title"><h2>模板库</h2><span class="mg-template-count"></span></div><div class="mg-template-list"></div><div class="mg-library-bottom"><button data-action="learn" class="mg-button mg-learn">＋ 链接学模板</button><button data-action="import" class="mg-text-button">导入模板 JSON</button><input type="file" class="mg-file-input" accept="application/json,.json" hidden></div></section></aside></div>
       <footer class="mg-status" role="status" aria-live="polite">编辑、预览随时切换；宽窗口可左右对照。</footer>`,
     );
@@ -341,20 +341,28 @@ export class Studio {
       () => void this.run("准备图片…", () => this.imageDialog()),
     );
     bind("export", () => void this.run("正在生成内容包…", () => this.export()));
-    bind(
-      "publish-browser",
-      () =>
-        void this.run("正在准备整篇稿件与图片…", async () => {
-          const platform = this.settings.platform;
-          if (!this.host.publishArticle)
-            throw new Error("请在 Obsidian 中使用最新版墨稿发布。");
-          const article = await this.articleForBrowser(platform);
-          await this.host.publishArticle(article, (message) =>
-            this.tell(message),
-          );
-          this.tell("已打开浏览器。登录后会自动同步稿件，最后由你确认发表。");
-        }),
-    );
+    const publishToBrowser = (mode: PublishMode) => {
+      const platform = this.settings.platform;
+      if (platform === "x" || platform === "xiaohongshu") {
+        this.settings.publishModes ||= {};
+        this.settings.publishModes[platform] = mode;
+        this.previewMode = "article";
+        this.setView("preview");
+        this.commitPreferences();
+        this.render();
+      }
+      void this.run("正在准备整篇稿件与图片…", async () => {
+        if (!this.host.publishArticle)
+          throw new Error("请在 Obsidian 中使用最新版墨稿发布。");
+        const article = await this.articleForBrowser(platform, undefined, mode);
+        await this.host.publishArticle(article, (message) =>
+          this.tell(message),
+        );
+        this.tell("已打开浏览器。登录后会自动同步稿件，最后由你确认发表。");
+      });
+    };
+    bind("publish-browser", () => publishToBrowser("article"));
+    bind("publish-post", () => publishToBrowser("post"));
     this.root
       .querySelectorAll<HTMLElement>("[data-platform]")
       .forEach((button) =>
@@ -373,21 +381,6 @@ export class Studio {
         this.previewMode = button.dataset.mode as typeof this.previewMode;
         this.render();
       }),
-    );
-    this.q<HTMLSelectElement>(".mg-publish-mode").addEventListener(
-      "change",
-      (event) => {
-        const platform = this.settings.platform;
-        if (platform !== "x" && platform !== "xiaohongshu") return;
-        this.settings.publishModes ||= {};
-        this.settings.publishModes[platform] =
-          (event.target as HTMLSelectElement).value === "post"
-            ? "post"
-            : "article";
-        this.previewMode = "article";
-        this.commitPreferences();
-        this.render();
-      },
     );
     this.q<HTMLInputElement>(".mg-topics-input").addEventListener(
       "input",
@@ -582,8 +575,6 @@ export class Studio {
     const postMode = this.publishMode() === "post";
     this.q(".mg-post-options").hidden =
       platform !== "x" && platform !== "xiaohongshu";
-    this.q<HTMLSelectElement>(".mg-publish-mode").value = this.publishMode();
-    this.q(".mg-topics-field").hidden = !postMode;
     this.q(".mg-preview-modes").hidden = postMode;
     this.root.querySelectorAll<HTMLElement>("[data-platform]").forEach((el) => {
       el.classList.toggle("is-active", el.dataset.platform === platform);
@@ -621,18 +612,16 @@ export class Studio {
           : "导出原图";
     this.q(".mg-platform-hint").textContent = PLATFORMS[platform].hint;
     this.q('[data-action="publish-browser"]').hidden = false;
-    this.q('[data-action="publish-browser"]').textContent = postMode
-      ? platform === "x"
-        ? "发布 X 普通图文帖"
-        : "发布小红书图文笔记"
-      : platform === "x"
-        ? "发布到 X 长文"
-        : `发布到${PLATFORMS[platform].name}`;
-    if (postMode)
+    const hasPhotoPost = platform === "x" || platform === "xiaohongshu";
+    this.q('[data-action="publish-browser"]').textContent = hasPhotoPost
+      ? "发布长文"
+      : `发布到${PLATFORMS[platform].name}`;
+    this.q('[data-action="publish-post"]').hidden = !hasPhotoPost;
+    if (hasPhotoPost)
       this.q(".mg-platform-hint").textContent =
         platform === "x"
-          ? "标题放在首行，图片按笔记顺序作为附件上传（最多 4 张）；正文限 280 加权字符。"
-          : "自动上传原图（最多 18 张），填写标题、正文和话题。文末 #话题会自动识别，可在上方修改。";
+          ? "发布图文：标题放首行，原图按顺序上传（最多 4 张）；字数限制交给 X 处理。发布长文：保留文中图片位置。"
+          : "发布图文：上传原图（最多 18 张），填写标题、正文和话题。发布长文：保留图文排版。";
     this.q('[data-action="copy"]').textContent = postMode
       ? "复制文案"
       : platform === "x" && this.previewMode === "thread"
@@ -654,6 +643,12 @@ export class Studio {
       this.options(),
       this.assets,
     );
+    if (hasPhotoPost && this.topicOverride === undefined)
+      this.q<HTMLInputElement>(".mg-topics-input").value = this.postDetails(
+        this.bodyContent().html,
+      )
+        .topics.map((topic) => `#${topic}`)
+        .join(" ");
     const count = Array.from(this.rendered.plainText).length;
     this.q(".mg-counts").textContent =
       `${count.toLocaleString()} 字符` +
@@ -696,7 +691,7 @@ export class Studio {
           .map((topic) => `#${topic}`)
           .join(" ");
       this.q(".mg-counts").textContent =
-        `${platform === "x" ? weightedLength(caption) + " / 280 加权字符" : Array.from(caption).length + " / 1,000 字"} · ${details.images.length} 张图片`;
+        `${platform === "x" ? Array.from(caption).length + " 字符" : Array.from(caption).length + " / 1,000 字"} · ${details.images.length} 张图片`;
       try {
         validatePost(
           platform,
@@ -1061,10 +1056,10 @@ export class Studio {
   async articleForBrowser(
     platform: BridgePlatform,
     note?: Draft,
+    mode: PublishMode = this.publishMode(platform),
   ): Promise<BrowserArticle> {
     if (this.destroyed) throw new Error("墨稿窗口已关闭。");
     const draft = structuredClone(note || this.draft);
-    const mode = this.publishMode(platform);
     const topicOverride = note ? undefined : this.topicOverride?.slice();
     if (!draft.markdown.trim())
       throw new Error("请先在 Obsidian 打开笔记，或在墨稿里读取一篇笔记。");

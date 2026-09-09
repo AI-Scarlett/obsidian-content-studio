@@ -4,7 +4,7 @@ English | [简体中文](README.zh-CN.md)
 
 Format Obsidian notes for WeChat Official Accounts, Zhihu, Xiaohongshu and X. Choose one of six built-in templates, adjust typography and colors, or learn reusable styles from an article URL. The interface is currently in Simplified Chinese.
 
-Desktop only. This branch: 0.1.13 preview build with browser assistant 0.3.6. Requires Obsidian 1.8.7 or later; earlier native validation used 1.13.7. Formatting preserves your source text and runs locally. No AI account, API key or automatic publishing is required.
+Desktop only. This branch: 0.1.14 preview build with browser assistant 0.3.7. Requires Obsidian 1.8.7 or later; earlier native validation used 1.13.7. Formatting preserves your source text and runs locally. No AI account, API key or automatic publishing is required.
 
 ## Features
 
@@ -105,14 +105,14 @@ Start in Mogao with **发布到平台**. The extension automatically opens the s
 
 Click the browser assistant toolbar icon to open Obsidian and its Mogao workbench. Existing workbench edits are preserved; a newly opened workbench reads the active note. The first launch may require the browser’s external-app confirmation. The last-used vault must have Mogao enabled. On a pending publish handoff page, the icon continues that handoff instead.
 
-The 0.1.13 preview bundles browser assistant 0.3.6, with platform-specific media and draft adapters. Existing unpacked extension installations must be reloaded once after updating their files. See [the release notes](docs/releases/0.1.13.md) and [browser assistant documentation](browser-extension/README.md) for current validation boundaries.
+The 0.1.14 preview bundles browser assistant 0.3.7, with platform-specific media and draft adapters. Existing unpacked extension installations must be reloaded once after updating their files. See [the release notes](docs/releases/0.1.14.md) and [browser assistant documentation](browser-extension/README.md) for current validation boundaries.
 
 
 ### 普通图文发布
 
-在小红书或 X 平台下，将底部“发布类型”从“长文”切换为“普通图文”。点击发布后，浏览器助手打开对应的普通图文编辑器，按笔记顺序上传原图。无需导出文件、选择文件夹或逐张粘贴图片。平台最终发布仍由你操作。
+在小红书或 X 平台下，直接点击底部 **发布长文** 或 **发布图文**。发布图文会打开对应的普通图文编辑器，按笔记顺序上传原图。无需导出文件、选择文件夹或逐张粘贴图片。平台最终发布仍由你操作。
 
 - 小红书：自动填写独立标题和正文，文末 `#话题` 会预填到可编辑的话题栏，随后通过平台话题候选列表插入原生话题标签。至少 1 张、最多 18 张图片；标题不超过 20 字，正文含话题不超过 1,000 字。话题选择失败会明确提示，已上传图片保留。
-- X：普通帖将标题放在首行，正文和话题在后，最多 4 张图片作为帖子附件。普通帖使用纯文本，图片不嵌在段落之间。本模式按 280 加权字符检查（汉字通常计 2）；更长内容请选择长文，不会自动截断或拆帖。
-- 支持 PNG、JPEG、WebP。X 普通帖每张不超过 5 MB；小红书本工具每张不超过 8 MB。数量或内容超限会停止整次发送。
+- X：普通帖将标题放在首行，正文和话题在后，最多 4 张图片作为帖子附件。普通帖使用纯文本，图片不嵌在段落之间。墨稿不拦截 X 字数，也不截断或拆帖；由 X 判断当前账号的发布限制。
+- 支持 PNG、JPEG、WebP。X 普通帖每张不超过 5 MB；小红书本工具每张不超过 8 MB。图片数量、格式或大小超限会停止发送；小红书仍检查标题和正文限制。
 - 这两个入口已做模型与上传控件回归测试；本版真实账号多图上传尚未完成验收。见发布说明。

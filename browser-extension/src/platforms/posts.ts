@@ -153,18 +153,6 @@ export function postProbe(
       };
   }
 }
-// Source-backed Vue SingleImg props; the CDN preview may legitimately stay a blob.
-function xhsIdentity(item: HTMLElement): string | undefined {
-  const component = (
-    item as HTMLElement & {
-      __vueParentComponent?: {
-        props?: { img?: { fileId?: unknown; status?: unknown } };
-      };
-    }
-  ).__vueParentComponent;
-  const id = component?.props?.img?.fileId;
-  return typeof id === "string" && id.length > 0 ? id : undefined;
-}
 function tiptap(root: HTMLElement): Editor {
   const editor = (root as HTMLElement & { editor?: Editor }).editor;
   if (!editor?.commands?.setContent || !editor.view?.state)
@@ -300,9 +288,19 @@ export class PostSession {
       })
     )
       return;
-    const ids = items.map(xhsIdentity);
-    if (ids.some((id) => !id)) return;
-    return ids as string[];
+    // SingleImg renders its Edit control only after uploading/preRender ends.
+    // Vue's devtools-only DOM properties are not a production API. The native
+    // completed preview may remain a blob; its URL tracks order, not server persistence.
+    if (
+      items.some(
+        (item) => !item.querySelector(".hover-mask:not(.prerender) .edit-btn"),
+      )
+    )
+      return;
+    return items.map((item) => {
+      const image = item.querySelector("img")!;
+      return image.currentSrc || image.src;
+    });
   }
   private verifyPrior(ids: string[]) {
     if (this.uploaded.some((id, i) => ids[i] !== id))
@@ -312,8 +310,7 @@ export class PostSession {
     this.check();
     if (!this.plan || image.marker !== this.markers[this.uploaded.length])
       throw new Error("图片顺序不一致，已停止。");
-    if (this.textWritten && !this.captionMatches())
-      throw new Error("正文已被编辑，已停止同步，保留你的修改。");
+    this.assertTextUnchanged();
     const before = this.identities();
     if (!before || before.length !== this.uploaded.length)
       throw new Error("平台图片发生变化，已停止同步。");
@@ -326,10 +323,15 @@ export class PostSession {
       imageFile(this.win, image),
       () => !this.stopped,
     );
+    // The first photo mounts the native form. Fill it now instead of delaying
+    // all text until every image has finished and risking an image-only draft.
+    if (this.platform === "xiaohongshu" && !this.textWritten)
+      await this.writeXhs();
     const expected = this.uploaded.length + 1;
     let stable = "",
       since = 0;
     const ids = await this.until(() => {
+      this.assertTextUnchanged();
       const result = this.identities();
       if (!result) {
         since = 0;
@@ -354,12 +356,14 @@ export class PostSession {
     return `已接收图片 ${expected} / ${this.markers.length}`;
   }
   private async writeXhs() {
-    this.root = await this.until(
-      () => xhsRoot(this.doc),
-      "图片已上传，但小红书正文编辑器未出现。请检查当前草稿。",
-    );
-    const title = xhsTitle(this.doc);
-    if (!title || title.value.trim() || this.root.textContent?.trim())
+    const fields = await this.until(() => {
+      const root = xhsRoot(this.doc),
+        title = xhsTitle(this.doc);
+      return root && title ? { root, title } : undefined;
+    }, "图片已上传，但小红书正文编辑器未出现。请检查当前草稿。");
+    this.root = fields.root;
+    const title = fields.title;
+    if (title.value.trim() || this.root.textContent?.trim())
       throw new Error("小红书恢复了已有标题或正文，已保留原稿并停止。");
     const editor = tiptap(this.root);
     const setter = Object.getOwnPropertyDescriptor(
@@ -384,6 +388,20 @@ export class PostSession {
       () => this.captionMatches() && title.value === this.plan!.title,
       "小红书未接收完整标题或正文。",
     );
+  }
+  private assertTextUnchanged() {
+    if (!this.textWritten) return;
+    if (
+      !this.captionMatches() ||
+      (this.platform === "xiaohongshu" &&
+        xhsTitle(this.doc)?.value !== this.plan?.title)
+    )
+      throw new Error("标题或正文已被编辑，已停止同步，保留你的修改。");
+  }
+  private async writeXhsTopics() {
+    this.assertTextUnchanged();
+    const editor = tiptap(this.root!);
+    const title = xhsTitle(this.doc)!;
     for (const topic of this.plan!.topics!) {
       this.check();
       if (!this.captionMatches())
@@ -447,7 +465,7 @@ export class PostSession {
     this.check();
     if (!this.plan || this.uploaded.length !== this.markers.length)
       throw new Error("图片尚未全部上传，不能完成同步。");
-    if (this.platform === "xiaohongshu") await this.writeXhs();
+    if (this.platform === "xiaohongshu") await this.writeXhsTopics();
     await this.until(() => {
       if (!this.captionMatches())
         throw new Error("平台正文与墨稿不一致，请检查草稿。");
@@ -463,16 +481,6 @@ export class PostSession {
             JSON.stringify(this.plan!.topics)
         )
           throw new Error("标题或话题核对失败，请检查当前草稿。");
-      } else {
-        const button = xScope(this.doc)?.querySelector<HTMLElement>(
-          '[data-testid="tweetButton"]',
-        );
-        if (
-          !button ||
-          button.hasAttribute("disabled") ||
-          button.getAttribute("aria-disabled") === "true"
-        )
-          return;
       }
       return true;
     }, "图片或文案仍未通过平台检查，请检查平台提示。已同步内容保留。");

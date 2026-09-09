@@ -1,5 +1,3 @@
-import twitter from "twitter-text";
-
 export type PublishMode = "article" | "post";
 export type PostPlatform = "xiaohongshu" | "x";
 export function parseTopics(value: string): string[] {
@@ -52,7 +50,7 @@ export function postCaption(
     .filter(Boolean)
     .join("\n\n");
 }
-/** Conservative normal-post limits; no account entitlement assumptions or truncation. */
+/** Media constraints and Xiaohongshu limits; X owns its account-specific text limits. */
 export function validatePost(
   platform: PostPlatform,
   title: string,
@@ -86,13 +84,6 @@ export function validatePost(
       throw new Error("小红书图文标题超过 20 字，请修改后再同步。");
     if ([...postCaption(platform, title, body, topics)].length > 1000)
       throw new Error("小红书图文正文和话题超过 1,000 字，请缩短或切换长文。");
-  } else if (
-    twitter.parseTweet(postCaption(platform, title, body, topics))
-      .weightedLength > 280
-  ) {
-    throw new Error(
-      "X 普通帖超过 280 加权字符（汉字通常计 2），请缩短或切换 X 长文。当前模式不会自动截断或拆帖。",
-    );
   }
   if (!postCaption(platform, title, body, topics) && !images)
     throw new Error("帖子内容为空。");

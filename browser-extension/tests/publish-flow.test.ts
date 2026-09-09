@@ -65,7 +65,7 @@ async function scenario({
     titleEmpty: !nonempty,
   };
   win.chrome = {
-    runtime: { id: "a".repeat(32), getManifest: () => ({ version: "0.3.6" }) },
+    runtime: { id: "a".repeat(32), getManifest: () => ({ version: "0.3.7" }) },
     tabs: {
       create: async (options: any) => {
         tabs.push(options);

@@ -183,14 +183,9 @@ function fixture(
       if (!tip) setupXhs();
       const item = doc.createElement("div");
       item.className = "img-container";
-      (item as any).__vueParentComponent = {
-        props: {
-          img: {
-            fileId: options.pending ? undefined : `native-${files.length}`,
-          },
-        },
-      };
-      item.innerHTML = `<img src="blob:https://creator.xiaohongshu.com/${files.length}">${options.failure ? '<div class="mask failed"></div>' : ""}`;
+      // Production DOM has no Vue devtools properties. Native state is reflected
+      // by failed/uploading masks and by Edit appearing after upload completes.
+      item.innerHTML = `<img src="blob:https://creator.xiaohongshu.com/${files.length}">${options.failure ? '<div class="mask failed"></div>' : options.pending ? '<div class="mask uploading"></div>' : '<div class="mask hover-mask"><button class="edit-btn">编辑</button></div>'}`;
       doc.querySelector(".img-preview-area")!.append(item);
       if (options.duplicate)
         doc.querySelector(".img-preview-area")!.append(item.cloneNode(true));
@@ -289,12 +284,19 @@ test("X native composer receives all four photos in order and leaves background 
     f.close();
   }
 });
-test("XHS reveals editor after first photo and fills title/body with two real topic nodes", async () => {
+test("production XHS DOM fills title/body after first photo without Vue devtools and adds native topics", async () => {
   const f = fixture("xiaohongshu");
   try {
     assert.equal(postProbe(f.doc, "xiaohongshu")?.empty, true);
     await begin(f);
-    for (const image of f.plan.images) await f.session.image(image);
+    await f.session.image(f.plan.images[0]);
+    assert.equal(f.files.length, 1);
+    assert.equal(
+      f.doc.querySelector<HTMLInputElement>("input[placeholder]")!.value,
+      "测试标题",
+    );
+    assert.equal(f.doc.querySelector(".tiptap")!.textContent, "第一段第二段");
+    await f.session.image(f.plan.images[1]);
     assert.match(await f.session.finish(), /2 个话题及 2 张图片/);
     assert.equal(
       f.doc.querySelector<HTMLInputElement>("input[placeholder]")!.value,
@@ -324,6 +326,16 @@ for (const platform of ["x", "xiaohongshu"] as const)
       await begin(f);
       await assert.rejects(f.session.image(f.plan.images[0]), /未确认上传/);
       assert.equal(f.files.length, 1);
+      if (platform === "xiaohongshu") {
+        assert.equal(
+          f.doc.querySelector<HTMLInputElement>("input[placeholder]")!.value,
+          "测试标题",
+        );
+        assert.equal(
+          f.doc.querySelector(".tiptap")!.textContent,
+          "第一段第二段",
+        );
+      }
     } finally {
       f.close();
     }
@@ -411,13 +423,10 @@ test("post limits reject entire delivery without dropping images, text or title"
         ),
       /最多 4/,
     );
-    assert.throws(
-      () =>
-        prepareArticle(
-          { ...source, html: `<p>${"中".repeat(150)}</p>` },
-          f.win,
-        ),
-      /280/,
+    assert.equal(
+      prepareArticle({ ...source, html: `<p>${"中".repeat(150)}</p>` }, f.win)
+        .caption,
+      "标题\n\n" + "中".repeat(150),
     );
     assert.throws(
       () =>
@@ -516,12 +525,49 @@ test("XHS requires decoded images and preserves title/body typed while uploading
     for (const image of g.plan.images) await g.session.image(image);
     g.doc.querySelector<HTMLInputElement>("input[placeholder]")!.value =
       "用户的新标题";
-    await assert.rejects(g.session.finish(), /已有标题/);
+    await assert.rejects(g.session.finish(), /已被编辑/);
     assert.equal(
       g.doc.querySelector<HTMLInputElement>("input[placeholder]")!.value,
       "用户的新标题",
     );
   } finally {
     g.close();
+  }
+});
+
+test("X receives long text even when its own Post button is disabled", async () => {
+  const f = fixture("x");
+  try {
+    f.plan.caption = "完整长文".repeat(200);
+    f.doc.querySelector<HTMLButtonElement>(
+      '[data-testid="tweetButton"]',
+    )!.disabled = true;
+    await begin(f);
+    for (const image of f.plan.images) await f.session.image(image);
+    assert.match(await f.session.finish(), /2 张图片/);
+    assert.equal(
+      f.handle!.props.editorState.getCurrentContent().getPlainText("\n"),
+      f.plan.caption,
+    );
+  } finally {
+    f.close();
+  }
+});
+
+test("XHS preserves user edits during the remaining image uploads", async () => {
+  const f = fixture("xiaohongshu");
+  try {
+    await begin(f);
+    await f.session.image(f.plan.images[0]);
+    f.doc.querySelector<HTMLInputElement>("input[placeholder]")!.value =
+      "用户改动";
+    await assert.rejects(f.session.image(f.plan.images[1]), /已被编辑/);
+    assert.equal(f.files.length, 1);
+    assert.equal(
+      f.doc.querySelector<HTMLInputElement>("input[placeholder]")!.value,
+      "用户改动",
+    );
+  } finally {
+    f.close();
   }
 });

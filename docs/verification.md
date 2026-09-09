@@ -48,3 +48,7 @@ Private notes, vault paths, local screenshots and machine logs are excluded from
 ## 0.1.13 / assistant 0.3.6 normal posts
 
 The new X and Xiaohongshu post modes are covered by scoped composer/gallery fixtures, Draft.js text state and Tiptap native topic nodes, mode-aware handoff transport, ordered repeated images, limits, failures, cancellation and preservation of user edits. These tests simulate uploads. Live inspection confirmed the empty normal-post routes and native inputs only; real uploads and draft reopening are not yet verified. See [0.1.13](releases/0.1.13.md).
+
+## 0.1.14 / assistant 0.3.7 direct publishing and text fixes
+
+Production-shaped Xiaohongshu gallery tests omit Vue devtools properties, verify early title/body insertion and retained upload/user-edit checks. X long text is passed unchanged even if the native submit control is disabled. Studio tests alternate direct article/photo buttons. See [0.1.14](releases/0.1.14.md) for live inspection and acceptance limits.

@@ -462,7 +462,7 @@ test("X has a working Articles action that sends formatted body and images, sepa
       '[data-action="publish-browser"]',
     )!;
     assert.equal(button.hidden, false);
-    assert.equal(button.textContent, "发布到 X 长文");
+    assert.equal(button.textContent, "发布长文");
     await click(h, "publish-browser");
     assert.equal(h.deliveries.length, 1);
     assert.equal(h.deliveries[0].platform, "x");
@@ -484,12 +484,14 @@ test("normal photo modes send embedded images and editable topics, while note sw
     h.root
       .querySelector<HTMLButtonElement>('[data-platform="xiaohongshu"]')!
       .click();
-    const mode = h.root.querySelector<HTMLSelectElement>(".mg-publish-mode")!;
-    mode.value = "post";
-    mode.dispatchEvent(new window.Event("change"));
-    assert.match(
-      h.root.querySelector('[data-action="publish-browser"]')!.textContent!,
-      /图文笔记/,
+    assert.equal(h.root.querySelector(".mg-publish-mode"), null);
+    assert.equal(
+      h.root.querySelector('[data-action="publish-browser"]')!.textContent,
+      "发布长文",
+    );
+    assert.equal(
+      h.root.querySelector('[data-action="publish-post"]')!.textContent,
+      "发布图文",
     );
     assert.equal(
       h.root.querySelector<HTMLInputElement>(".mg-topics-input")!.value,
@@ -498,7 +500,7 @@ test("normal photo modes send embedded images and editable topics, while note sw
     const topics = h.root.querySelector<HTMLInputElement>(".mg-topics-input")!;
     topics.value = "#新话题";
     topics.dispatchEvent(new window.Event("input"));
-    await click(h, "publish-browser");
+    await click(h, "publish-post");
     assert.equal(h.deliveries[0].mode, "post");
     assert.deepEqual(h.deliveries[0].topics, ["新话题"]);
     assert.equal((h.deliveries[0].html.match(/data:image/g) || []).length, 2);
@@ -509,29 +511,33 @@ test("normal photo modes send embedded images and editable topics, while note sw
       "#第二篇",
     );
     h.root.querySelector<HTMLButtonElement>('[data-platform="x"]')!.click();
-    assert.equal(mode.value, "article");
-    mode.value = "post";
-    mode.dispatchEvent(new window.Event("change"));
-    await click(h, "publish-browser");
+    await click(h, "publish-post");
     assert.equal(h.deliveries[1].platform, "x");
     assert.equal(h.deliveries[1].mode, "post");
     assert.deepEqual(h.deliveries[1].topics, ["第二篇"]);
+    await click(h, "publish-browser");
+    assert.equal(h.deliveries[2].mode, undefined);
+    assert.equal(h.deliveries[2].topics, undefined);
+    await click(h, "publish-post");
+    assert.equal(h.deliveries[3].mode, "post");
   } finally {
     h.studio.destroy();
     h.root.remove();
   }
 });
-test("X over-limit post stays in Studio and does not open a platform tab", async () => {
+test("X long post goes to the browser intact without local character rejection", async () => {
   const h = harness();
   try {
     await h.studio.openDraft(draft("正文".repeat(150)));
     h.root.querySelector<HTMLButtonElement>('[data-platform="x"]')!.click();
-    const mode = h.root.querySelector<HTMLSelectElement>(".mg-publish-mode")!;
-    mode.value = "post";
-    mode.dispatchEvent(new window.Event("change"));
-    await click(h, "publish-browser");
-    assert.equal(h.deliveries.length, 0);
-    assert.match(h.root.querySelector(".mg-status")!.textContent!, /280/);
+    await click(h, "publish-post");
+    assert.equal(h.deliveries.length, 1);
+    assert.equal(h.deliveries[0].mode, "post");
+    assert.ok(h.deliveries[0].html.includes("正文".repeat(150)));
+    assert.doesNotMatch(
+      h.root.querySelector(".mg-counts")!.textContent!,
+      /280/,
+    );
   } finally {
     h.studio.destroy();
     h.root.remove();
