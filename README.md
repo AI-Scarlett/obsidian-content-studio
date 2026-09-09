@@ -28,13 +28,24 @@ Images are loaded automatically from Vault attachments and public HTTP(S) URLs w
 
 For updates, replace only `main.js`, `manifest.json` and `styles.css`; keep `data.json` to preserve settings and custom templates. The plugin does not update itself.
 
+## Install the browser publishing assistant
+
+The browser assistant is currently an unpacked Chrome/Edge extension, not a store listing. Mogao can open its onboarding page after you click a publish action. To install it directly from GitHub:
+
+1. Open the repository [Actions](https://github.com/AI-Scarlett/obsidian-content-studio/actions) page and open the latest successful **Verify plugin** or **Release plugin** run.
+2. Download `content-studio-package` (verification run) or `content-studio-0.1.14-package` (release run) from **Artifacts**. Unzip it and locate `mogao-browser-extension-0.3.7-preview.zip`.
+3. Unzip that assistant archive. In Chrome open `chrome://extensions` (or `edge://extensions`), enable **Developer mode**, choose **Load unpacked**, and select the extracted `mogao-browser-extension` directory. Select the directory, not the ZIP file.
+4. Confirm the extension card shows version **0.3.7**. The first toolbar click may ask to open Obsidian; allow it so the assistant can return to Mogao.
+
+To update an unpacked installation, replace the files in the same directory and click **Reload** on the extension card. Confirm 0.3.7 before publishing again. The assistant only receives a draft after a user-started publish action; it does not enumerate the Vault or read the system clipboard.
+
 ## Workflow
 
 1. Select a note with **选择笔记**, read the active note with **读取当前笔记**, or paste Markdown in the studio.
 2. Write in the full-size editor; switch to **预览** for preview or **对照** for a side-by-side view on wide panes. Templates and styling live in the **模板与样式** drawer.
 3. Wait for the image counter. Use **重新载入图片** to retry failures.
 4. For WeChat, Xiaohongshu long-form, Zhihu or X Articles, click **发布到平台** in Mogao. The companion browser extension receives the current draft and images, opens the destination, waits for login if necessary, then uses its platform adapter to synchronize the separate title, structured body and inline images. There is no per-article file selection or import step.
-5. If the extension is missing, the browser opens installation onboarding with the bundled preview extension download. After installation, subsequent articles start directly from Mogao.
+5. If the extension is missing, the browser opens installation onboarding with the bundled preview extension download. After installation, subsequent articles start directly from Mogao. On X and Xiaohongshu, the workbench exposes separate **发布长文** and **发布图文** actions.
 6. Review the platform draft and its save status, then publish manually. Full extension acceptance on real platforms remains pending. Title/body copying and file exports remain available as secondary tools. X Articles requires the corresponding account access; ordinary X threads retain copying.
 
 Each export creates a new folder under `墨稿导出/` by default, configurable in plugin settings. Packages include `article.html`, `article.md`, `title.txt`, `caption.txt`, `template.json`, `manifest.json`, and numbered image files. Markdown references are rewritten to the image files. HTML embeds the image bytes. Xiaohongshu exports additional PNG cards; X exports separate thread text files.

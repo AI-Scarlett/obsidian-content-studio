@@ -2,13 +2,13 @@
 
 仓库：<https://github.com/AI-Scarlett/obsidian-content-studio>
 
-Release：<https://github.com/AI-Scarlett/obsidian-content-studio/releases/tag/0.1.4>
+Release：<https://github.com/AI-Scarlett/obsidian-content-studio/releases/tag/0.1.14>
 
 | 字段 | 内容 |
 | --- | --- |
 | Plugin ID | `content-studio` |
 | Name | `Mogao Content Studio` |
-| Version / tag | `0.1.4`（不加 `v`） |
+| Version / tag | `0.1.14`（不加 `v`） |
 | Author | `AI-Scarlett` |
 | Minimum Obsidian | `1.8.7` |
 | Desktop only | `true` |
@@ -37,4 +37,4 @@ Release：<https://github.com/AI-Scarlett/obsidian-content-studio/releases/tag/0
 
 ## 更新已提交的版本
 
-0.1.4 修复源码和 CSS 检查，发布流程提供来源证明。请在现有插件条目中重新运行检查，确保读取到默认分支和 `0.1.4` Release。Vault Enumeration 和 Clipboard Access 是保留功能的行为说明，具体范围见 [审核说明](review-response.md)。
+0.1.14 修复小红书图文标题/正文同步，取消 X 的本地字数拦截，并提供长文和图文两个直接发布按钮。发布流程为三个 Obsidian 文件提供来源证明；浏览器助手安装方式见仓库根目录 README 和 [浏览器助手说明](../browser-extension/README.md)。Vault Enumeration 和 Clipboard Access 是保留功能的行为说明，具体范围见 [审核说明](review-response.md)。
