@@ -22,7 +22,12 @@ await build({
   target: "chrome120",
   legalComments: "eof",
 });
-for (const name of ["manifest.json", "importer.html", "importer.css"])
+for (const name of [
+  "manifest.json",
+  "importer.html",
+  "importer.css",
+  "open-studio.html",
+])
   await copyFile(`browser-extension/${name}`, `${folder}/${name}`);
 for (const [source, name] of [
   ["browser-extension/README.md", "README.md"],
@@ -40,6 +45,7 @@ const files = [
   "sample-article.html",
   "manifest.json",
   "importer.html",
+  "open-studio.html",
   "importer.css",
   "background.js",
   "content.js",

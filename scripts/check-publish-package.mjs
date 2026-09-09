@@ -21,6 +21,7 @@ class Plugin {
   }
   registerEvent() {}
   registerView() {}
+  registerObsidianProtocolHandler() {}
   addRibbonIcon() {}
   addCommand() {}
   addSettingTab() {}
@@ -110,6 +111,7 @@ try {
     "content.js",
     "importer.js",
     "importer.html",
+    "open-studio.html",
     "README.md",
   ])
     assert.deepEqual(

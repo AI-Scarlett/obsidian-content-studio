@@ -47,19 +47,46 @@ function harness(saved: any = null) {
   let clip: any;
   let enumerations = 0;
   let clipboardReads = 0;
+  const leaves: any[] = [],
+    revealed: any[] = [],
+    layoutCallbacks: (() => void)[] = [];
+  let reads = 0;
   const app = {
     workspace: {
       getActiveFile: () => note,
       getActiveViewOfType: () => null,
       on: () => ({}),
-      getLeavesOfType: () => [],
+      getLeavesOfType: () => leaves,
+      onLayoutReady: (callback: () => void) => {
+        layoutCallbacks.push(callback);
+      },
+      getLeaf: () => ({
+        view: {
+          studio: {
+            draft: undefined,
+            openDraft(draft: any) {
+              this.draft = draft;
+            },
+            destroy() {},
+          },
+        },
+        async setViewState() {
+          leaves.push(this);
+        },
+      }),
+      revealLeaf: async (leaf: any) => {
+        revealed.push(leaf);
+      },
     },
     vault: {
       getMarkdownFiles: () => {
         enumerations++;
         return [note];
       },
-      cachedRead: async (file: TFile) => files.get(file.path),
+      cachedRead: async (file: TFile) => {
+        reads++;
+        return files.get(file.path);
+      },
       readBinary: async (file: TFile) => files.get(file.path),
       getAbstractFileByPath: (path: string) =>
         files.has(path) ? new TFile(path) : folders.has(path) ? {} : null,
@@ -84,6 +111,13 @@ function harness(saved: any = null) {
     ribbons: any[] = [];
     views: any[] = [];
     settingTabs: any[] = [];
+    protocols = new Map<string, (params: any) => void>();
+    registerObsidianProtocolHandler(
+      action: string,
+      handler: (params: any) => void,
+    ) {
+      this.protocols.set(action, handler);
+    }
     async loadData() {
       return data;
     }
@@ -225,8 +259,75 @@ function harness(saved: any = null) {
     getClip: () => clip,
     getEnumerations: () => enumerations,
     getClipboardReads: () => clipboardReads,
+    leaves,
+    revealed,
+    getReads: () => reads,
+    layoutReady: () => {
+      for (const callback of layoutCallbacks.splice(0)) callback();
+    },
   };
 }
+const settle = () => new Promise<void>((resolve) => setImmediate(resolve));
+test("Obsidian URI waits for workspace restore and preserves an existing unsaved draft", async () => {
+  const h = harness();
+  await h.plugin.onload();
+  const uri = h.plugin.protocols.get("content-studio");
+  assert.ok(uri);
+  uri({
+    action: "content-studio",
+    file: "other.md",
+    text: "overwrite",
+    publish: "true",
+  });
+  assert.equal(h.leaves.length, 0);
+  assert.equal(h.revealed.length, 0);
+  const draft = { title: "未保存标题", markdown: "未保存正文 ![[test.png]]" };
+  const leaf = h.app.workspace.getLeaf();
+  await leaf.setViewState();
+  leaf.view.studio.openDraft(draft);
+  h.layoutReady();
+  await settle();
+  assert.equal(h.revealed[0], leaf);
+  assert.equal(leaf.view.studio.draft, draft);
+  assert.equal(h.getReads(), 0);
+  assert.equal(h.browserUrls.length, 0);
+  assert.equal(h.files.get(h.note.path), h.original);
+});
+test("repeated URI requests create only one workbench with the active note", async () => {
+  const h = harness();
+  await h.plugin.onload();
+  const uri = h.plugin.protocols.get("content-studio");
+  uri({});
+  uri({});
+  uri({});
+  h.layoutReady();
+  await settle();
+  assert.equal(h.leaves.length, 1);
+  assert.equal(h.getReads(), 1);
+  assert.equal(h.leaves[0].view.studio.draft.title, "原笔记");
+  assert.equal(h.getEnumerations(), 0);
+  uri({});
+  h.layoutReady();
+  await settle();
+  assert.equal(h.leaves.length, 1);
+  assert.equal(h.getReads(), 1);
+});
+test("URI opens an empty workbench without an active note and ignores callbacks after unload", async () => {
+  const h = harness();
+  h.app.workspace.getActiveFile = () => null as any;
+  await h.plugin.onload();
+  h.plugin.protocols.get("content-studio")({});
+  h.layoutReady();
+  await settle();
+  assert.equal(h.leaves.length, 1);
+  assert.equal(h.leaves[0].view.studio.draft, undefined);
+  assert.equal(h.getReads(), 0);
+  h.plugin.protocols.get("content-studio")({});
+  h.plugin.onunload();
+  h.layoutReady();
+  await settle();
+  assert.equal(h.revealed.length, 1);
+});
 test("built plugin loads and registers an Obsidian view, commands and ribbon", async () => {
   const h = harness();
   await h.plugin.onload();
@@ -343,19 +444,17 @@ test("compiled host opens one browser handoff with the selected draft and preser
   });
   await h.plugin.onload();
   const before = structuredClone(h.getData());
-  await h.plugin
-    .host()
-    .publishArticle(
-      {
-        format: "mogao-article",
-        version: 1,
-        title: "点击发布",
-        platform: "wechat",
-        source: "studio",
-        html: "<p>正文</p>",
-      },
-      () => {},
-    );
+  await h.plugin.host().publishArticle(
+    {
+      format: "mogao-article",
+      version: 1,
+      title: "点击发布",
+      platform: "wechat",
+      source: "studio",
+      html: "<p>正文</p>",
+    },
+    () => {},
+  );
   assert.equal(h.browserUrls.length, 1);
   const url = h.browserUrls[0];
   assert.match(url, /^http:\/\/127\.0\.0\.1:\d+\/publish\/[a-f\d]{64}$/);

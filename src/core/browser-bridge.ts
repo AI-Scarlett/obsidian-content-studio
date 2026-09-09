@@ -17,7 +17,7 @@ declare const MOGAO_EXTENSION_VERSION: string;
 const extensionVersion =
   typeof MOGAO_EXTENSION_VERSION === "string"
     ? MOGAO_EXTENSION_VERSION
-    : "0.3.2";
+    : "0.3.3";
 const extensionArchive =
   typeof MOGAO_EXTENSION_ZIP === "string" ? MOGAO_EXTENSION_ZIP : "";
 export type BridgePlatform = "wechat" | "xiaohongshu" | "zhihu" | "x";

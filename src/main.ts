@@ -117,7 +117,10 @@ export default class ContentStudioPlugin extends Plugin {
   settings: Settings = structuredClone(DEFAULT_SETTINGS);
   private lastNote: TFile | null = null;
   private bridge?: BrowserBridge;
+  private waking?: Promise<void>;
+  private unloaded = false;
   async onload() {
+    this.unloaded = false;
     const saved: unknown = await this.loadData();
     if (isRecord(saved)) {
       const templates: Template[] = [];
@@ -159,6 +162,16 @@ export default class ContentStudioPlugin extends Plugin {
       }),
     );
     this.registerView(VIEW, (leaf) => new StudioView(leaf, this));
+    this.registerObsidianProtocolHandler("content-studio", () => {
+      // Cold starts restore the workspace asynchronously. Never replace a draft
+      // in an existing workbench, and never interpret URI parameters as content.
+      this.app.workspace.onLayoutReady(() => {
+        if (this.unloaded) return;
+        this.waking ??= this.open(undefined, true).finally(() => {
+          this.waking = undefined;
+        });
+      });
+    });
     this.addRibbonIcon(
       "newspaper",
       "墨稿：将笔记排成多平台内容",
@@ -200,6 +213,7 @@ export default class ContentStudioPlugin extends Plugin {
     }
   }
   onunload() {
+    this.unloaded = true;
     this.bridge?.stop();
     this.app.workspace
       .getLeavesOfType(VIEW)
@@ -219,10 +233,15 @@ export default class ContentStudioPlugin extends Plugin {
     const file = this.app.workspace.getActiveFile() || this.lastNote;
     return file?.extension === "md" ? this.readNote(file) : null;
   }
-  async open(draft?: Draft) {
+  async open(draft?: Draft, preserveExisting = false) {
     try {
-      const current = draft || (await this.activeDraft());
       let leaf = this.app.workspace.getLeavesOfType(VIEW)[0];
+      if (leaf && preserveExisting) {
+        await this.app.workspace.revealLeaf(leaf);
+        return;
+      }
+      const current = draft || (await this.activeDraft());
+      if (this.unloaded) return;
       if (!leaf) {
         leaf = this.app.workspace.getLeaf("tab");
         await leaf.setViewState({ type: VIEW, active: true });

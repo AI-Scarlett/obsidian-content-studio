@@ -1,12 +1,16 @@
-# Verification scope for 0.1.9 preview / browser assistant 0.3.2
+# Verification scope for 0.1.10 preview / browser assistant 0.3.3
 
-The current build is checked by 95 plugin tests and 46 companion tests, plus zero-warning Obsidian ESLint, CSS lint, TypeScript and production builds. Run `npm run verify`, `npm run verify:extension`, then `npm run package`.
+## Browser toolbar wakeup
+
+The new icon route requests `obsidian://content-studio`; the plugin waits for workspace restoration and preserves existing workbench edits. 98 plugin tests and 48 companion tests pass. Native settings show 0.1.10 enabled; a newly opened workbench has the same complete Markdown and title as before the update, with 3/3 images loaded. Companion 0.3.3 files are deployed but its browser reload and toolbar wakeup have not been verified. A browser URI-link attempt produced no confirmed native transition. Cold application startup remains unverified. See [0.1.10 notes](releases/0.1.10.md).
+
+The current build is checked by 98 plugin tests and 48 companion tests, plus zero-warning Obsidian ESLint, CSS lint, TypeScript and production builds. Run `npm run verify`, `npm run verify:extension`, then `npm run package`.
 
 The companion tests serialize every Draft.js state update, round-trip title/body/media documents and link ranges with emoji, reject DOM seed writes, and exercise the current Xiaohongshu image-array contract with upload completion preceding node insertion. Failure, cancellation, duplicate uploads, old protocols, draft preservation and no final publication remain covered. Uploaders are test substitutes; the checks do not establish real-account success.
 
 Live read-only inspection of the user's failed drafts found a Xiaohongshu blob image at progress zero, a Zhihu seed character with a React reconciliation exception, and X entity lookup errors with no body images. The corrections and evidence boundaries are recorded in [0.1.9 notes](releases/0.1.9.md). The new companion still requires runtime reload and actual upload, autosave and reopen acceptance. Earlier tool denials on extension management and internal extension pages remain in force, as does the unresolved automation file-upload permission. No final publication has been performed.
 
-Local deployment: Obsidian's native plugin settings showed 0.1.9 enabled; the newly opened workbench loaded all three note images. Its title and complete Markdown matched the pre-update UI snapshot, and data.json remained byte-identical. Browser assistant 0.3.2 files match the bundled archive; its running version is not yet verified.
+Historical 0.1.9 deployment: Obsidian's native plugin settings showed 0.1.9 enabled; the newly opened workbench loaded all three note images. Its title and complete Markdown matched the pre-update UI snapshot, and data.json remained byte-identical. Browser assistant 0.3.2 files match the bundled archive; its running version is not yet verified.
 
 ## Xiaohongshu first-image regression (0.1.8)
 

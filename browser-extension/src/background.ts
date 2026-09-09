@@ -2,6 +2,16 @@ import { handoffPageUrl, publishUrl } from "./handoff";
 import type { LaunchError, LaunchReply } from "./launch-protocol";
 
 const opening = new Map<number, string>();
+let waking: Promise<void> | undefined;
+async function wakeStudio() {
+  // Keep the current platform/draft tab intact. This page remains available if
+  // the browser requires external-app confirmation or Obsidian is not installed.
+  const page = await chrome.tabs.create({
+    url: chrome.runtime.getURL("open-studio.html"),
+  });
+  if (page.id !== undefined)
+    await chrome.tabs.update(page.id, { url: "obsidian://content-studio" });
+}
 const accepted = (): LaunchReply => ({
   ok: true,
   version: chrome.runtime.getManifest().version,
@@ -75,7 +85,12 @@ chrome.action.onClicked.addListener((tab) => {
   if (page && tab.id !== undefined) {
     // Resume this draft even on an old installation guide with no injected launcher.
     void launch(tab.id, page);
-  } else if (!tab.url?.startsWith(chrome.runtime.getURL("importer.html"))) {
-    void chrome.tabs.create({ url: chrome.runtime.getURL("importer.html") });
+  } else {
+    waking ??= wakeStudio()
+      // The opening page provides a normal clickable URI for a manual retry.
+      .catch(() => {})
+      .finally(() => {
+        waking = undefined;
+      });
   }
 });

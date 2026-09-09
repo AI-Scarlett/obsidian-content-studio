@@ -58,6 +58,7 @@ function background(page = publish, fails = false) {
       },
       create: async (options: any) => {
         created.push(options);
+        return { id: 42, ...options };
       },
       sendMessage: async (...args: any[]) => {
         notices.push(args);
@@ -109,10 +110,41 @@ test("toolbar resumes the current recovery page; concurrent auto-start never nav
   assert.equal(f.updates.length, 1);
   assert.equal(new URL(f.updates[0].url).searchParams.get("job"), publish);
   assert.equal(f.created.length, 0);
-  f.click({ id: 1, url: f.updates[0].url });
-  assert.equal(f.created.length, 0);
-  f.click({ id: 2, url: "https://example.com/" });
-  assert.equal(f.created[0].url, importer);
+});
+test("toolbar on ordinary pages and progress pages opens Obsidian without navigating the current draft", async () => {
+  for (const page of [
+    "https://example.com/",
+    importer,
+    `${importer}?job=private-draft`,
+  ]) {
+    const f = background(page);
+    f.click();
+    f.click();
+    await settle();
+    assert.equal(f.created.length, 1);
+    assert.equal(
+      f.created[0].url,
+      `chrome-extension://${extension}/open-studio.html`,
+    );
+    assert.equal(f.updates.length, 1);
+    assert.equal(f.updates[0].id, 42);
+    assert.equal(f.updates[0].url, "obsidian://content-studio");
+    assert.equal(f.responses.length, 0);
+  }
+});
+test("failed external protocol navigation leaves a clickable retry page", async () => {
+  const f = background("https://example.com/", true);
+  f.click();
+  await settle();
+  assert.equal(
+    f.created[0].url,
+    `chrome-extension://${extension}/open-studio.html`,
+  );
+  assert.equal(f.updates[0].id, 42);
+  // Failure releases the in-flight guard, so a later toolbar click can retry.
+  f.click();
+  await settle();
+  assert.equal(f.created.length, 2);
 });
 test("navigation failures are delivered separately after acknowledgement", async () => {
   const f = background(publish, true);
