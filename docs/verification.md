@@ -1,4 +1,14 @@
-# Verification scope for 0.1.15 / browser assistant 0.3.7
+# Verification scope for 0.1.16 / browser assistant 0.3.7
+
+## Nested typography and reference rendering (0.1.16)
+
+114 plugin tests and 75 companion tests pass, with zero-warning source/CSS lint, TypeScript and production builds. Seven focused style regressions cover nested text sampling, outer containers, heading foreground/background pairing, body-versus-footer selection, indentation and blank-line spacing, relative units, important cascade priority, inactive media exclusion, neutral rendering and sanitized template round trips. The UI regression verifies both style-example and current-draft previews without modifying the original draft or loading reference images.
+
+A local browser comparison used identical synthetic text and WeChat-shaped markup for the reference, 0.1.15 sampler and updated sampler. Read-only computed-style inspection and screenshots confirmed the updated 17px body, 29.75px line height, 1px letter spacing, foreground colors, blue/white heading, main article frame and quotation border. A later correction restored the quote border after a shorthand reset had erased it. This comparison is not a pixel-exact score; remaining paragraph-versus-spacer margin collapse can still affect spacing.
+
+The previously downloaded WeChat reference contains nested 17px body text; 0.1.15 sampled 14px from other paragraphs, while the updated sampler selects 17px. Browser site-safety policy blocked opening the newest reported WeChat URL, so visual correspondence to that article remains unverified. No alternate browser route was used. See [0.1.16 notes](releases/0.1.16.md).
+
+The three plugin files were installed and matched the local build. Native Obsidian settings read 0.1.16, the plugin was re-enabled and a new workbench opened. Further native dialog testing stopped when the user began switching notes. The pre-update draft was backed up and matched its source note; existing saved templates and settings were retained, with a subsequent user platform switch from X to Zhihu observed. Browser assistant 0.3.7 does not require a reload for this update.
 
 ## Large-page style learning (0.1.15)
 

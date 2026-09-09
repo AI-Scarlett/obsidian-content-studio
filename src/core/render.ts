@@ -187,6 +187,54 @@ export function renderDraft(
       margin: "8px 0 20px",
     },
   };
+  if (t.styleMode === "reference") {
+    // Reference templates start from plain semantic defaults. Merging sampled
+    // styles onto a built-in theme used to invent green bars and tinted boxes.
+    Object.assign(shared, {
+      "font-family": t.roles?.p?.["font-family"] || font,
+      "letter-spacing": t.roles?.p?.["letter-spacing"] || "normal",
+      "text-align": t.roles?.p?.["text-align"] || "left",
+    });
+    for (const role of [
+      "h1",
+      "h2",
+      "h3",
+      "h4",
+      "p",
+      "blockquote",
+      "strong",
+      "em",
+      "a",
+      "code",
+      "pre",
+      "li",
+      "hr",
+      "figcaption",
+    ]) {
+      const previous = Object.fromEntries(
+        Object.entries(roles[role] || {}).filter(
+          ([key]) => !/^(border|padding|background)/.test(key),
+        ),
+      );
+      roles[role] = {
+        border: "0",
+        "border-radius": "0",
+        "background-color": "transparent",
+        padding: "0",
+        ...previous,
+        color: ink,
+      };
+      if (/^h[1-4]$/.test(role) || role === "blockquote") {
+        roles[role]["line-height"] = "normal";
+        roles[role]["letter-spacing"] = "normal";
+      }
+    }
+    roles.strong["font-weight"] = "700";
+    roles.em["font-style"] = "italic";
+    roles.p = { margin: `0 0 ${size}px`, "line-height": String(t.lineHeight) };
+    roles.a["text-decoration"] = "underline";
+    roles.blockquote.margin = "1em 40px";
+  }
   for (const [role, styles] of Object.entries(t.roles || {})) {
     const adjusted = { ...styles };
     // The user's typography controls take precedence over sampled paragraph sizes.
@@ -197,7 +245,9 @@ export function renderDraft(
     for (const key of Object.keys(adjusted))
       adjusted[key] = adjusted[key].split(t.palette.accent).join(accent);
     if (
-      options.platform === "xiaohongshu" &&
+      (t.styleMode === "reference"
+        ? options.forCards
+        : options.platform === "xiaohongshu") &&
       adjusted["font-size"]?.endsWith("px")
     )
       adjusted["font-size"] =
@@ -249,6 +299,12 @@ export function renderDraft(
     "box-sizing": "border-box",
     margin: "0 auto",
   });
+  if (t.styleMode === "reference") {
+    Object.assign(shared, { padding: "0" }, t.roles?.article);
+    // Font controls still resize the user's draft; the reference supplies its
+    // family, spacing and decoration rather than a fixed body font size.
+    shared["font-size"] = `${size}px`;
+  }
   article.setCssProps(shared);
   article.setAttribute("data-mg-article", "true");
   setSafeHtml(
@@ -259,6 +315,30 @@ export function renderDraft(
   for (const el of article.querySelectorAll<HTMLElement>("*")) {
     const role = el.tagName.toLowerCase();
     if (roles[role]) el.setCssProps(roles[role]);
+  }
+  if (t.styleMode === "reference") {
+    article.querySelectorAll<HTMLElement>("blockquote p").forEach((el) =>
+        el.setCssStyles({
+          color: "inherit",
+          fontSize: "inherit",
+          fontFamily: "inherit",
+          lineHeight: "inherit",
+          textAlign: "inherit",
+          textIndent: "0",
+        margin: "0",
+      }),
+    );
+    article
+      .querySelectorAll<HTMLElement>("h1 strong,h2 strong,h3 strong,h4 strong")
+      .forEach((el) =>
+        el.setCssStyles({
+          color: "inherit",
+          fontSize: "inherit",
+          fontFamily: "inherit",
+          lineHeight: "inherit",
+          backgroundColor: "transparent",
+        }),
+      );
   }
   article.querySelectorAll<HTMLElement>("pre code").forEach((el) => {
     el.setCssStyles({

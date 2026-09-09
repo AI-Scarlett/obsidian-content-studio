@@ -1285,33 +1285,50 @@ export class Studio {
                   );
             setSafeHtml(
               result,
-              `<div class="mg-learn-success">已提取 ${learned.source!.evidence} 项样式特征 · ${learned.source!.confidence === "strong" ? "样式信息较完整" : "部分样式可复用"}</div><label class="mg-field">模板名称<input data-template-name maxlength="60" value="${escapeHtml(learned.name)}"></label><div class="mg-learn-swatches">${Object.values(
+              `<div class="mg-learn-success">已生成参考模板 · 请预览标题、正文和引用效果</div><label class="mg-field">模板名称<input data-template-name maxlength="60" value="${escapeHtml(learned.name)}"></label><div class="mg-learn-swatches">${Object.values(
                 learned.palette,
               )
                 .map((c) => `<i style="background:${c}"></i>`)
                 .join(
                   "",
-                )}</div><div class="mg-learn-sample"></div><p class="mg-learn-notes">${learned.source!.notes.map(escapeHtml).join("<br>")}</p><button class="mg-button mg-primary" data-store>保存到模板库</button>`,
+                )}</div><div class="mg-learn-tabs"><button class="mg-button is-active" data-sample="styles">样式示例</button><button class="mg-button" data-sample="draft">当前稿件</button></div><div class="mg-learn-sample"></div><p class="mg-learn-notes">${learned.source!.notes.map(escapeHtml).join("<br>")}</p><button class="mg-button mg-primary" data-store>保存到模板库</button>`,
             );
-            const sample = this.draft.markdown
-              ? this.draft
-              : {
-                  title: "好内容，值得被看见",
-                  markdown:
-                    "## 从一篇笔记开始\n\n把熟悉的内容换一种表达，让想法被更多人看见。**重点依然清晰。**\n\n> 用恰当的留白，让阅读更轻松。",
-                  sourcePath: "",
-                };
-            setSafeHtml(
-              result.querySelector(".mg-learn-sample")!,
-              renderDraft(sample, {
-                platform: "wechat",
-                template: learned,
-                fontSize: learned.fontSize,
-                accent: learned.palette.accent,
-                footnotes: false,
-                imagePlaceholders: true,
-              }).html,
-            );
+            const example: Draft = {
+              title: "把喜欢的排版，带进自己的文章",
+              markdown:
+                "## 标题与正文的层次\n\n一套版式的特点，藏在字号、行距、字间距和段落留白里。这里展示学习后的正文，方便和参考文章对照。\n\n第二段用来观察段间距离。**这是强调文字**，还有*斜体文字*和[文章链接](https://example.com)。\n\n> 这里展示引用区的文字、底色、边框和内边距。\n\n![图片位置示例](sample-placeholder.png)\n\n## 再看一个小标题\n\n确认标题的颜色、底色和边线是否接近参考。切换“当前稿件”可查看套用效果，不会修改原稿。",
+              sourcePath: "",
+            };
+            const renderSample = (draft: Draft) => {
+              if (!learned) return;
+              setSafeHtml(
+                result.querySelector(".mg-learn-sample")!,
+                renderDraft(draft, {
+                  platform: "wechat",
+                  template: learned,
+                  fontSize: learned.fontSize,
+                  accent: learned.palette.accent,
+                  footnotes: false,
+                  imagePlaceholders: true,
+                }).html,
+              );
+            };
+            renderSample(example);
+            result
+              .querySelectorAll<HTMLElement>("[data-sample]")
+              .forEach((button) =>
+                button.addEventListener("click", () => {
+                  const useDraft = button.dataset.sample === "draft";
+                  renderSample(
+                    useDraft && this.draft.markdown ? this.draft : example,
+                  );
+                  result
+                    .querySelectorAll("[data-sample]")
+                    .forEach((el) =>
+                      el.classList.toggle("is-active", el === button),
+                    );
+                }),
+              );
             result.querySelector("[data-store]")!.addEventListener(
               "click",
               () =>

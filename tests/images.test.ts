@@ -83,7 +83,18 @@ test("style learning retries oversized pasted pages and previews placeholders wi
   await new Promise((resolve) => setTimeout(resolve, 0));
   const result = h.root.querySelector(".mg-learn-result")!;
   assert.ok(!result.classList.contains("is-error"));
-  assert.match(result.textContent!, /已提取/);
+  assert.match(result.textContent!, /已生成参考模板/);
+  assert.doesNotMatch(result.textContent!, /样式信息较完整/);
+  assert.equal(result.querySelectorAll(".mg-learn-sample h2").length, 2);
+  result.querySelector<HTMLButtonElement>('[data-sample="draft"]')!.click();
+  assert.equal(
+    (
+      result
+        .querySelector(".mg-learn-sample")!
+        .textContent!.match(/图片占位/g) || []
+    ).length,
+    2,
+  );
   assert.match(result.textContent!, /图片占位/);
   assert.equal(result.querySelectorAll(".mg-learn-sample img").length, 0);
   assert.equal(h.reads.length, readCount);

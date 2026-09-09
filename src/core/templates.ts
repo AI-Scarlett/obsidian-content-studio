@@ -107,6 +107,8 @@ export const STYLE_PROPERTIES = new Set([
   "letter-spacing",
   "text-align",
   "text-decoration",
+  "text-indent",
+  "border-right",
   "border-left",
   "border-bottom",
   "border-top",
@@ -144,7 +146,9 @@ export function safeStyle(property: string, value: string): string | undefined {
   if (p === "text-decoration")
     return /^(none|underline|line-through)$/.test(v) ? v : undefined;
   if (p === "line-height")
-    return /^(normal|[12](?:\.\d{1,2})?|[2-4]\d(?:\.\d+)?px|1\d\d%)$/.test(v)
+    return /^(normal|[12](?:\.\d{1,2})?(?:em)?|[2-4]\d(?:\.\d+)?px|[12]\d\d%)$/.test(
+      v,
+    )
       ? v
       : undefined;
   if (p.startsWith("border") && p !== "border-radius") {
@@ -161,7 +165,9 @@ export function safeStyle(property: string, value: string): string | undefined {
       ? v
       : undefined;
   if (p === "letter-spacing")
-    return /^(normal|[0-3](?:\.\d+)?px|0(?:\.\d+)?em)$/.test(v) ? v : undefined;
+    return /^(0|normal|[0-3](?:\.\d+)?px|0(?:\.\d+)?em)$/.test(v)
+      ? v
+      : undefined;
   return v.split(/\s+/).length <= 4 &&
     v
       .split(/\s+/)
@@ -214,12 +220,14 @@ export function validateTemplate(input: unknown): Template {
     throw new Error("模板字号或行距超出范围。");
   const roles: Template["roles"] = {};
   for (const key of [
+    "article",
     "h1",
     "h2",
     "h3",
     "p",
     "blockquote",
     "strong",
+    "em",
     "a",
     "code",
     "pre",
@@ -271,6 +279,7 @@ export function validateTemplate(input: unknown): Template {
       ? t.heading
       : "line",
     radius: Math.max(0, Math.min(20, Number(t.radius) || 0)),
+    ...(t.styleMode === "reference" ? { styleMode: "reference" as const } : {}),
     roles,
     source,
   };

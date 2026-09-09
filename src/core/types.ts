@@ -1,11 +1,13 @@
 export type Platform = "wechat" | "zhihu" | "xiaohongshu" | "x";
 export type Role =
+  | "article"
   | "h1"
   | "h2"
   | "h3"
   | "p"
   | "blockquote"
   | "strong"
+  | "em"
   | "a"
   | "code"
   | "pre"
@@ -30,6 +32,7 @@ export interface Template {
   fontFamily: "sans" | "serif";
   heading: "line" | "block" | "underline" | "plain";
   radius: number;
+  styleMode?: "reference";
   roles?: Partial<Record<Role, Styles>>;
   source?: {
     url: string;
