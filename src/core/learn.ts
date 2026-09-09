@@ -8,6 +8,7 @@ import {
   validateTemplate,
 } from "./templates";
 import type { Role, Styles, Template } from "./types";
+import { compactStyleHtml } from "./style-source";
 const css = { parse, generate, walk };
 
 function declarations(text: string): Styles {
@@ -43,9 +44,10 @@ export function learnTemplate(
   url = "pasted-html",
   externalCss: string[] = [],
 ): Template {
-  if (new TextEncoder().encode(html).length > 3 * 1024 * 1024)
-    throw new Error("页面超过 3 MB，请复制正文区域 HTML 后导入。");
-  const doc = new DOMParser().parseFromString(html, "text/html");
+  const doc = new DOMParser().parseFromString(
+    compactStyleHtml(html),
+    "text/html",
+  );
   doc
     .querySelectorAll("script,iframe,object,embed,noscript,svg,form,nav,footer")
     .forEach((el) => el.remove());
@@ -216,6 +218,7 @@ export function learnTemplate(
     .slice(0, 32);
   const notes = [
     "提取配色、字体、间距及标题/引用样式；不保存原文章正文。",
+    "已跳过参考文章图片和脚本；预览图片用占位符表示，不下载或保存原图。",
     "脚本生成效果、动画及复杂布局需要手动调整。",
   ];
   if (doc.querySelector('link[rel~="stylesheet"]') && externalCss.length === 0)

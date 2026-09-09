@@ -52,6 +52,7 @@ export interface RenderOptions {
   footnotes: boolean;
   includeTitle?: boolean;
   forCards?: boolean;
+  imagePlaceholders?: boolean;
 }
 export interface Rendered {
   html: string;

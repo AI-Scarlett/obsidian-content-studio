@@ -5,6 +5,7 @@ import https from "node:https";
 import { lookup } from "node:dns/promises";
 import { createGunzip, createInflate, createBrotliDecompress } from "node:zlib";
 import ipaddr from "ipaddr.js";
+import { StyleSource, STYLE_SOURCE_LIMIT } from "./style-source";
 
 export function validatePublicUrl(raw: string): URL {
   let url: URL;
@@ -101,14 +102,16 @@ export async function resolvePublicAddresses(
 }
 export async function downloadPublic(
   raw: string,
-  kind: "html" | "css" | "image" = "html",
+  kind: "html" | "style-html" | "css" | "image" = "html",
 ): Promise<Download> {
   const max =
     kind === "image"
       ? 8 * 1024 * 1024
       : kind === "css"
         ? 300_000
-        : 3 * 1024 * 1024;
+        : kind === "style-html"
+          ? STYLE_SOURCE_LIMIT
+          : 3 * 1024 * 1024;
   const deadline = Date.now() + 20000;
   async function visit(rawUrl: string, hops: number): Promise<Download> {
     if (hops > 4) throw new Error("页面跳转过多，请使用最终文章链接。");
@@ -144,7 +147,7 @@ export async function downloadPublic(
           headers: {
             "User-Agent": "Mozilla/5.0 ContentStudio/0.1.4",
             Accept:
-              kind === "html"
+              kind === "html" || kind === "style-html"
                 ? "text/html,application/xhtml+xml"
                 : kind === "css"
                   ? "text/css"
@@ -191,7 +194,7 @@ export async function downloadPublic(
             .trim()
             .toLowerCase();
           const allowed =
-            kind === "html"
+            kind === "html" || kind === "style-html"
               ? ["text/html", "application/xhtml+xml"]
               : kind === "css"
                 ? ["text/css", "text/plain"]
@@ -223,27 +226,42 @@ export async function downloadPublic(
           }
           const stream = decoder ? res.pipe(decoder) : res;
           const buffers: Buffer[] = [];
+          const styleSource =
+            kind === "style-html" ? new StyleSource() : undefined;
           let size = 0;
           res.on("error", fail);
           stream.on("error", fail);
           stream.on("data", (chunk: Buffer) => {
+            if (complete) return;
             size += chunk.length;
-            if (size > max) {
+            try {
+              if (size > max)
+                throw new Error(
+                  kind === "style-html"
+                    ? "页面数据超过 20 MB，已停止读取。请粘贴正文区域 HTML；图片无需复制。"
+                    : "内容过大，已停止下载。",
+                );
+              if (styleSource) styleSource.write(chunk);
+              else buffers.push(Buffer.from(chunk));
+            } catch (error) {
+              fail(error instanceof Error ? error : new Error(String(error)));
               stream.destroy();
               res.destroy();
               req.destroy();
-              fail(new Error("内容过大，已停止下载。"));
-            } else buffers.push(Buffer.from(chunk));
+            }
           });
           stream.on("end", () => {
             if (complete) return;
-            complete = true;
-            clearTimeout(timeout);
-            resolve({
-              data: new Uint8Array(Buffer.concat(buffers)),
-              contentType: mime,
-              finalUrl: url.href,
-            });
+            try {
+              const data = styleSource
+                ? new TextEncoder().encode(styleSource.finish())
+                : new Uint8Array(Buffer.concat(buffers));
+              complete = true;
+              clearTimeout(timeout);
+              resolve({ data, contentType: mime, finalUrl: url.href });
+            } catch (error) {
+              fail(error instanceof Error ? error : new Error(String(error)));
+            }
           });
         },
       );

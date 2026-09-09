@@ -320,7 +320,7 @@ export default class ContentStudioPlugin extends Plugin {
           options,
         ),
       learnUrl: async (url) => {
-        const page = await downloadPublic(url);
+        const page = await downloadPublic(url, "style-html");
         const html = new TextDecoder().decode(page.data);
         const links = stylesheetLinks(html, page.finalUrl);
         const results = await Promise.allSettled(

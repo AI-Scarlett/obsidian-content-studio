@@ -1270,6 +1270,7 @@ export class Studio {
       () =>
         void this.run("正在提取排版样式…", async () => {
           const result = modal.querySelector<HTMLElement>(".mg-learn-result")!;
+          result.classList.remove("is-error");
           try {
             learned =
               mode === "url"
@@ -1302,17 +1303,14 @@ export class Studio {
                 };
             setSafeHtml(
               result.querySelector(".mg-learn-sample")!,
-              renderDraft(
-                sample,
-                {
-                  platform: "wechat",
-                  template: learned,
-                  fontSize: learned.fontSize,
-                  accent: learned.palette.accent,
-                  footnotes: false,
-                },
-                this.assets,
-              ).html,
+              renderDraft(sample, {
+                platform: "wechat",
+                template: learned,
+                fontSize: learned.fontSize,
+                accent: learned.palette.accent,
+                footnotes: false,
+                imagePlaceholders: true,
+              }).html,
             );
             result.querySelector("[data-store]")!.addEventListener(
               "click",

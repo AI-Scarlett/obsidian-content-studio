@@ -65,6 +65,37 @@ async function click(h: ReturnType<typeof harness>, action: string) {
   }
 }
 
+test("style learning retries oversized pasted pages and previews placeholders without changing note images", async () => {
+  const h = harness();
+  const note = draft();
+  await h.studio.openDraft(note);
+  const readCount = h.reads.length;
+  await click(h, "learn");
+  h.root.querySelector<HTMLButtonElement>('[data-learn-mode="html"]')!.click();
+  const html = h.root.querySelector<HTMLTextAreaElement>("[data-html]")!;
+  const extract = h.root.querySelector<HTMLButtonElement>("[data-learn]")!;
+  html.value = "<p>invalid</p>";
+  extract.click();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.ok(h.root.querySelector(".mg-learn-result.is-error"));
+  html.value = `<script>${"unused".repeat(550_000)}</script><article><p style="font-size:17px;color:#334455;line-height:1.8">${"样式正文".repeat(20)}</p><img src="https://example.com/reference-large.png"></article>`;
+  extract.click();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  const result = h.root.querySelector(".mg-learn-result")!;
+  assert.ok(!result.classList.contains("is-error"));
+  assert.match(result.textContent!, /已提取/);
+  assert.match(result.textContent!, /图片占位/);
+  assert.equal(result.querySelectorAll(".mg-learn-sample img").length, 0);
+  assert.equal(h.reads.length, readCount);
+  assert.equal(
+    h.root.querySelector<HTMLTextAreaElement>('[aria-label="正文 Markdown"]')!
+      .value,
+    note.markdown,
+  );
+  assert.equal(h.root.querySelectorAll(".mg-preview img").length, 2);
+  h.studio.destroy();
+});
+
 test("image loading is bounded to three concurrent requests and results keep source order", async () => {
   let active = 0,
     peak = 0;

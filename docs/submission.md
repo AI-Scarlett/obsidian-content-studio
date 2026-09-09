@@ -2,13 +2,13 @@
 
 仓库：<https://github.com/AI-Scarlett/obsidian-content-studio>
 
-Release：<https://github.com/AI-Scarlett/obsidian-content-studio/releases/tag/0.1.14>
+Release：<https://github.com/AI-Scarlett/obsidian-content-studio/releases/tag/0.1.15>
 
 | 字段 | 内容 |
 | --- | --- |
 | Plugin ID | `content-studio` |
 | Name | `Mogao Content Studio` |
-| Version / tag | `0.1.14`（不加 `v`） |
+| Version / tag | `0.1.15`（不加 `v`） |
 | Author | `AI-Scarlett` |
 | Minimum Obsidian | `1.8.7` |
 | Desktop only | `true` |
@@ -37,4 +37,4 @@ Release：<https://github.com/AI-Scarlett/obsidian-content-studio/releases/tag/0
 
 ## 更新已提交的版本
 
-0.1.14 修复小红书图文标题/正文同步，取消 X 的本地字数拦截，并提供长文和图文两个直接发布按钮。发布流程为三个 Obsidian 文件提供来源证明；浏览器助手安装方式见仓库根目录 README 和 [浏览器助手说明](../browser-extension/README.md)。Vault Enumeration 和 Clipboard Access 是保留功能的行为说明，具体范围见 [审核说明](review-response.md)。
+0.1.15 修复“链接学模板”对大网页误报“内容过大”的问题：读取时跳过脚本和参考图片，预览用图片占位符，保留正文与排版样式提取。浏览器助手仍为 0.3.7。发布流程为三个 Obsidian 文件提供来源证明；浏览器助手安装方式见仓库根目录 README 和 [浏览器助手说明](../browser-extension/README.md)。Vault Enumeration 和 Clipboard Access 是保留功能的行为说明，具体范围见 [审核说明](review-response.md)。

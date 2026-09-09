@@ -1,7 +1,7 @@
 {
   "id": "content-studio",
   "name": "Mogao Content Studio",
-  "version": "0.1.14",
+  "version": "0.1.15",
   "minAppVersion": "1.8.7",
   "description": "Format notes for WeChat, Zhihu, Xiaohongshu and X with reusable templates, embedded images and article style learning.",
   "author": "AI-Scarlett",

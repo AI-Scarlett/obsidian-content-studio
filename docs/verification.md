@@ -1,4 +1,12 @@
-# Verification scope for 0.1.12 preview / browser assistant 0.3.5
+# Verification scope for 0.1.15 / browser assistant 0.3.7
+
+## Large-page style learning (0.1.15)
+
+All 107 plugin tests and 75 companion tests pass, along with zero-warning source/CSS lint, TypeScript checks and production builds. The streaming collector tests exercise large scripts and inline image payloads, split UTF-8/tag/entity boundaries, stylesheet preservation, raw/reduced/depth limits and image placeholder order. The Studio regression retries after an error with a page over 3 MB, confirms successful extraction with placeholders and no extra image reads, and preserves the ordinary draft and its images.
+
+The reported public WeChat page was read through the actual downloader: its 3,420,713-byte response contained 3,277,070 bytes of scripts, while article markup was about 105 KB. Reduction retained 120,128 bytes and yielded 21 style features; all three selected CSS requests succeeded and no reference image request was made. Raw decompressed input remains capped at 20 MB and reduced HTML at 3 MB. See [0.1.15 notes](releases/0.1.15.md). Historical platform upload observations below are not new acceptance claims for this change.
+
+Native Obsidian 1.13.7 was updated to plugin 0.1.15 and reloaded. The same link completed in the real learning dialog: accessibility inspection reported 21 style features, two image placeholders, the skipped-image explanation and an available save-to-library button. The prior draft title and complete Markdown were restored and matched the pre-update snapshot, with 2/2 note images loaded in the ordinary preview. Installed plugin data remained byte-identical. Private draft snapshots and machine evidence remain outside source control.
 
 ## X delayed image placement
 

@@ -271,16 +271,20 @@ export function renderDraft(
   });
   for (const img of article.querySelectorAll("img")) {
     const src = img.getAttribute("src") || "";
-    if (isEmbeddedImage(assets[src])) img.src = assets[src];
+    if (!options.imagePlaceholders && isEmbeddedImage(assets[src]))
+      img.src = assets[src];
     else {
       const p = createEl("p");
-      p.textContent = `〔图片：${img.alt || src}〕`;
+      p.textContent = options.imagePlaceholders
+        ? `〔图片占位：${img.alt || "图片"}〕`
+        : `〔图片：${img.alt || src}〕`;
       p.setAttribute(
         "style",
         `padding:16px;border:1px dashed ${muted};color:${muted};font-size:0.85em`,
       );
       img.replaceWith(p);
-      warnings.push(`图片未嵌入：${img.alt || src}`);
+      if (!options.imagePlaceholders)
+        warnings.push(`图片未嵌入：${img.alt || src}`);
     }
   }
   const references = new Map<string, number>();
