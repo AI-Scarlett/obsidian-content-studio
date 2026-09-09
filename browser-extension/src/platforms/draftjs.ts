@@ -171,7 +171,6 @@ export class DraftDriver implements EditorDriver {
     return entity.getType() === "MEDIA" && hasMediaId(entity.getData());
   }
   imageIdentity(candidate: HTMLImageElement): string | undefined {
-    if (this.platform !== "x") return;
     const element = candidate.closest('[data-block="true"]');
     const key = element?.getAttribute("data-offset-key")?.split("-")[0];
     if (
@@ -186,6 +185,10 @@ export class DraftDriver implements EditorDriver {
     if (!block || block.getType() !== "atomic") return;
     const entityKey = block.getEntityAt(0);
     if (entityKey === null || entityKey === undefined) return;
+    // Zhihu may remount every image when uploading or changing selection. Its
+    // native block/entity pair survives that remount and distinguishes repeated
+    // uses of the same image URL. EditorSession separately checks CDN + decoding.
+    if (this.platform === "zhihu") return `zhihu-image:${key}:${entityKey}`;
     const entity = content.getEntity(entityKey);
     const id =
       entity.getType() === "MEDIA" ? mediaId(entity.getData()) : undefined;
@@ -353,6 +356,14 @@ export class DraftDriver implements EditorDriver {
     if (uploaded.length !== 1)
       throw new Error("图片上传产生了多个或未知文档块，已停止，避免图片错位。");
     const media = uploaded[0];
+    if (
+      this.platform === "zhihu" &&
+      this.imageIdentity(candidate) !==
+        `zhihu-image:${media.getKey()}:${media.getEntityAt(0)}`
+    )
+      throw new Error(
+        "图片与本次上传的文档记录不一致，已停止，避免移动错误图片。",
+      );
     if (this.platform === "x") {
       const id = mediaId(content.getEntity(media.getEntityAt(0)).getData());
       if (

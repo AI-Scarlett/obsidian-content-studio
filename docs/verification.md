@@ -1,4 +1,14 @@
-# Verification scope for 0.1.16 / browser assistant 0.3.7
+# Verification scope for 0.1.17 / browser assistant 0.3.8
+
+## Zhihu multiple-image tracking (0.1.17 / 0.3.8)
+
+The old adapter compares image DOM object identity when waiting for an upload. Two new tests reproduce a failure on the second image after Draft.js remounts existing images, including repeated source URLs. The new implementation uses the native image block/entity pair; it still requires a decoded platform-hosted image and validates the exact new upload before moving it. Additional tests cover a CDN URL change, rejection of an untrusted preview URL, and refusing a previous image as the latest upload without modifying the document.
+
+A read-only check of the logged-in Zhihu writing page confirmed the dedicated multiple-image body input alongside the document-import input and separate cover input. The image dialog was also inspected. The browser file chooser did not open through the available automation, so no test image was uploaded and no live multi-image completion or saved-draft round trip is claimed for this version. Final publication was not triggered.
+
+This update retains the general URL/HTML template-sampling fixes released in 0.1.16. It does not tune or overwrite an individual saved template.
+
+Validation passed: plugin lint/CSS lint/typecheck, 114 plugin tests, 79 browser-assistant tests and both builds. The local Obsidian installation was backed up and upgraded to 0.1.17, verified in native settings and enabled. A fresh workbench retained the same Markdown and showed all three source images; settings and saved templates remained byte-identical. The unpacked assistant files are 0.3.8, with its browser runtime reload awaiting the user.
 
 ## Nested typography and reference rendering (0.1.16)
 

@@ -1,4 +1,4 @@
-# 墨稿 · 浏览器发布助手（预览版 0.3.7）
+# 墨稿 · 浏览器发布助手（预览版 0.3.8）
 
 点击浏览器工具栏的 **墨稿图标**，会请求唤醒 Obsidian 并打开墨稿工作台。已打开的工作台保留未保存稿件；首次打开时读取当前笔记。首次调用可能需要确认“打开 Obsidian”。未启动 Obsidian 时会由系统启动，上次使用的仓库需启用墨稿。如果浏览器没有打开应用，可在新开的“回到墨稿”页点击重试。当前页若是待接收稿件的连接页，图标仍会继续该次同步。
 
@@ -30,12 +30,12 @@
 扩展尚未上架 Chrome 扩展商店。推荐在墨稿中点击发布：如果没有检测到助手，安装引导会提供与当前插件版本匹配的下载。也可以直接从 GitHub Actions 获取：
 
 1. 打开仓库的 [Actions](https://github.com/AI-Scarlett/obsidian-content-studio/actions) 页面，进入最新成功的 **Verify plugin** 或 **Release plugin** 运行。
-2. 在页面底部 **Artifacts** 下载 `content-studio-package` 或 `content-studio-0.1.14-package`，解压后找到 `mogao-browser-extension-0.3.7-preview.zip`。
+2. 在页面底部 **Artifacts** 下载 `content-studio-package` 或 `content-studio-0.1.17-package`，解压后找到 `mogao-browser-extension-0.3.8-preview.zip`。
 3. 解压浏览器助手 ZIP。在 Chrome 地址栏打开 `chrome://extensions`（Edge 使用 `edge://extensions`），打开 **开发者模式**。
 4. 点击 **加载已解压的扩展程序**，选择解压后的 `mogao-browser-extension` 文件夹；不要选择 ZIP 文件本身。
-5. 在扩展卡片确认版本是 **0.3.7**。首次点击工具栏图标时，浏览器可能询问是否打开 Obsidian，请允许。
+5. 在扩展卡片确认版本是 **0.3.8**。首次点击工具栏图标时，浏览器可能询问是否打开 Obsidian，请允许。
 
-已经加载过扩展：将新版文件更新到原来的扩展目录，然后在扩展管理页点击墨稿卡片的 **重新加载**，确认显示 **0.3.7**。从 0.3.0 更新到本版没有新增网站权限。仅刷新公众号页面不会更新扩展。
+已经加载过扩展：将新版文件更新到原来的扩展目录，然后在扩展管理页点击墨稿卡片的 **重新加载**，确认显示 **0.3.8**。从 0.3.0 更新到本版没有新增网站权限。仅刷新公众号页面不会更新扩展。
 
 Obsidian 0.1.14 会拒绝旧版助手领取稿件，并明确提示重新加载，避免磁盘文件已经更新而浏览器仍使用旧的图片粘贴逻辑。重新加载后，回墨稿再点发布即可；无须导出笔记。
 
@@ -65,7 +65,7 @@ Obsidian 仅在 `127.0.0.1` 提供这次点击的冻结稿件。随机任务地�
 
 ## 构建与开源来源
 
-仓库根目录运行 `npm run verify:extension`。输出 `dist/mogao-browser-extension/` 和 `dist/mogao-browser-extension-0.3.7-preview.zip`。`npm run build` 把扩展 ZIP 内置到 Obsidian 的 `main.js`。
+仓库根目录运行 `npm run verify:extension`。输出 `dist/mogao-browser-extension/` 和 `dist/mogao-browser-extension-0.3.8-preview.zip`。`npm run build` 把扩展 ZIP 内置到 Obsidian 的 `main.js`。
 
 Draft.js 部分改编自 xPoster（MIT）；公众号素材/草稿协议部分改编自 MultiPost-Extension（Apache-2.0）。来源、固定提交、修改说明和许可证保存在源码、`THIRD_PARTY_NOTICES.md` 及 `licenses/` 中。未复制 Wechatsync 的 GPL 源码或无许可证的 rednote-skills 代码。
 
@@ -78,3 +78,5 @@ Draft.js 部分改编自 xPoster（MIT）；公众号素材/草稿协议部分�
 0.3.6 新增小红书图文笔记和 X 普通图文帖。协议升级至 8，新增模式字段的端到端核对；旧版扩展不能领取新稿。真实平台上传验收仍待完成，详见 `docs/releases/0.1.13.md`。
 
 0.3.7 修复小红书图文上传完成判断，不再依赖 Vue 调试字段；首图唤起正文编辑器后立即填入标题和正文，上传结束后添加话题。X 字数由平台处理，原生发布按钮禁用不会阻止稿件同步完成。配套墨稿 0.1.14 直接提供“发布长文”和“发布图文”按钮。协议更新为 9，需要重新加载扩展。
+
+0.3.8 修复知乎多图核对依赖旧图片节点的问题。按正文中的图片块和实体记录识别每张图，兼容节点重建、相同图片重复出现及平台更换图片地址；放回原位前验证图片属于本次上传。协议更新为 10，请重新加载助手并从墨稿发起新的空白草稿。三图回归通过，真实账号上传和保存重开仍待验收。

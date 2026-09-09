@@ -2,13 +2,13 @@
 
 仓库：<https://github.com/AI-Scarlett/obsidian-content-studio>
 
-Release：<https://github.com/AI-Scarlett/obsidian-content-studio/releases/tag/0.1.16>
+Release：<https://github.com/AI-Scarlett/obsidian-content-studio/releases/tag/0.1.17>
 
 | 字段 | 内容 |
 | --- | --- |
 | Plugin ID | `content-studio` |
 | Name | `Mogao Content Studio` |
-| Version / tag | `0.1.16`（不加 `v`） |
+| Version / tag | `0.1.17`（不加 `v`） |
 | Author | `AI-Scarlett` |
 | Minimum Obsidian | `1.8.7` |
 | Desktop only | `true` |
@@ -37,4 +37,4 @@ Release：<https://github.com/AI-Scarlett/obsidian-content-studio/releases/tag/0
 
 ## 更新已提交的版本
 
-0.1.16 修复“链接学模板”漏掉内层文字与外层容器样式、并混入默认主题装饰的问题；增加样式示例/当前稿件预览切换，取消用属性数量暗示完整还原。保留 0.1.15 的跳过图片与脚本功能。浏览器助手仍为 0.3.7。发布流程为三个 Obsidian 文件提供来源证明；浏览器助手安装方式见仓库根目录 README 和 [浏览器助手说明](../browser-extension/README.md)。Vault Enumeration 和 Clipboard Access 是保留功能的行为说明，具体范围见 [审核说明](review-response.md)。
+0.1.17 修复“链接学模板”漏掉内层文字与外层容器样式、并混入默认主题装饰的问题；增加样式示例/当前稿件预览切换，取消用属性数量暗示完整还原。保留 0.1.15 的跳过图片与脚本功能。浏览器助手仍为 0.3.8。发布流程为三个 Obsidian 文件提供来源证明；浏览器助手安装方式见仓库根目录 README 和 [浏览器助手说明](../browser-extension/README.md)。Vault Enumeration 和 Clipboard Access 是保留功能的行为说明，具体范围见 [审核说明](review-response.md)。

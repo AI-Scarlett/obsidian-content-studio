@@ -14,7 +14,7 @@ const runId = crypto.randomUUID();
 const headers = {
   "X-Mogao-Extension": chrome.runtime.id,
   "X-Mogao-Run": runId,
-  "X-Mogao-Protocol": "9",
+  "X-Mogao-Protocol": "10",
   "Content-Type": "application/json",
 };
 const names = {
@@ -59,10 +59,10 @@ async function pageCommand(frameId: number, message: Command): Promise<Reply> {
     func: async (owner: string, command: Command): Promise<Reply> => {
       const runtime = (
         globalThis as typeof globalThis & {
-          __mogaoArticleV9?: import("./content").MainRuntime;
+          __mogaoArticleV10?: import("./content").MainRuntime;
         }
-      ).__mogaoArticleV9;
-      if (runtime?.version !== 9)
+      ).__mogaoArticleV10;
+      if (runtime?.version !== 10)
         return { ok: false, error: "平台适配器未加载，请更新墨稿扩展。" };
       return runtime.dispatch(owner, command);
     },

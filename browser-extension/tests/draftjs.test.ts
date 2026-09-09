@@ -27,6 +27,7 @@ function fixture(
     zhihuModal?: boolean;
     delayedId?: boolean;
     atMarker?: boolean;
+    sameImageUrl?: boolean;
   } = {},
 ) {
   const dom = new JSDOM(
@@ -124,7 +125,7 @@ function fixture(
     if (fail) return;
     const src =
       platform === "zhihu"
-        ? `https://pic-private.zhihu.com/test-${uploads}.png`
+        ? `https://pic-private.zhihu.com/test-${options.sameImageUrl ? 1 : uploads}.png`
         : options.blob
           ? `blob:https://x.com/test-${uploads}`
           : `https://pbs.twimg.com/media/test-${uploads}.png`;
@@ -241,6 +242,8 @@ for (const options of [
   { blob: true, remount: true, delayedId: true },
   { blob: true, remount: true, atMarker: true },
   { zhihuInput: true },
+  { zhihuInput: true, remount: true },
+  { zhihuInput: true, remount: true, sameImageUrl: true, atMarker: true },
   { zhihuModal: true },
 ]) {
   const platform = "blob" in options ? "x" : "zhihu";
@@ -303,6 +306,76 @@ test("X blob previews still require a platform media ID and an exact native bloc
   assert.equal(hasMediaId({ mediaItems: ["1234567890123456789"] }), true);
   assert.equal(hasMediaId({ width: 123456789, height: 987654321 }), false);
   assert.equal(hasMediaId({ mediaItems: ["local-preview"] }), false);
+});
+
+test("Zhihu image records survive CDN URL changes while refusing non-platform previews", async () => {
+  const f = fixture("zhihu", false, false, undefined, {
+    zhihuInput: true,
+    remount: true,
+  });
+  try {
+    const { images, ...body } = f.plan;
+    await f.session.begin(
+      body,
+      images.map((image) => image.marker),
+    );
+    await f.session.image(images[0]);
+    const state = f.handle.props.editorState;
+    const content = state.getCurrentContent();
+    const block = content
+      .getBlocksAsArray()
+      .find((b) => b.getType() === "atomic")!;
+    const updateUrl = (src: string) => {
+      const current = f.handle.props.editorState;
+      f.handle.props.onChange(
+        EditorState.set(current, {
+          currentContent: current
+            .getCurrentContent()
+            .mergeEntityData(block.getEntityAt(0), { src }),
+        }),
+      );
+    };
+    updateUrl("https://picx.zhimg.com/converted-first-image.webp");
+    for (const image of images.slice(1)) await f.session.image(image);
+    assert.equal(f.uploads(), 3);
+    updateUrl("https://untrusted.example/image.png");
+    await assert.rejects(f.session.finish(), /最终图片数量、顺序或显示状态/);
+    updateUrl("https://picx.zhimg.com/converted-first-image.webp");
+    assert.match(await f.session.finish(), /3 张平台图片/);
+  } finally {
+    f.session.cancel();
+    f.dom.window.close();
+  }
+});
+
+test("Zhihu rejects a previous image as the new upload without moving or removing draft blocks", async () => {
+  const f = fixture("zhihu", false, false, undefined, {
+    zhihuInput: true,
+    remount: true,
+  });
+  try {
+    const { images, ...body } = f.plan;
+    await f.session.begin(
+      body,
+      images.map((image) => image.marker),
+    );
+    await f.session.image(images[0]);
+    const driver = new DraftDriver(f.root, "zhihu");
+    await driver.upload(images[1]);
+    const before = convertToRaw(f.handle.props.editorState.getCurrentContent());
+    await assert.rejects(
+      driver.settle(images[1], f.root.querySelector("img")),
+      /本次上传的文档记录不一致/,
+    );
+    assert.deepEqual(
+      convertToRaw(f.handle.props.editorState.getCurrentContent()),
+      before,
+    );
+    assert.ok(f.root.textContent.includes(images[1].marker));
+  } finally {
+    f.session.cancel();
+    f.dom.window.close();
+  }
 });
 
 for (const restoreMarkers of [false, true])

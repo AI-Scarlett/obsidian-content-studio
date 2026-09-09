@@ -216,7 +216,9 @@ export class EditorSession {
         return;
       return this.driver?.imageIdentity?.(image);
     }
-    return platformImage(src, this.platform) ? src : undefined;
+    if (!platformImage(src, this.platform)) return;
+    if (this.platform === "zhihu") return this.driver?.imageIdentity?.(image);
+    return src;
   }
   async begin(plan: Omit<ImportPlan, "images">, markers: string[]) {
     if (this.plan || this.stopped)
@@ -284,7 +286,7 @@ export class EditorSession {
           "平台插入了多余图片，已停止；请检查当前草稿，避免重复上传。",
         );
       const added = all.filter((img) =>
-        this.platform === "x"
+        this.platform === "x" || this.platform === "zhihu"
           ? !!this.imageIdentity(img) &&
             !beforeIdentities.has(this.imageIdentity(img))
           : !before.includes(img),
