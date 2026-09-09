@@ -143,12 +143,48 @@ function fixture(
     },
   });
   let uploads = 0;
+  let toolbarCalls = 0;
   const editor = new Editor({
     element: win.document.getElementById("editor")!,
     extensions: [StarterKit, options.gallery ? GalleryImage : Image],
     content: options.content || "",
+    onPaste: options.gallery
+      ? (event) => {
+          event.preventDefault();
+          assert.equal(event.clipboardData?.files.length, 1);
+          assert.ok(event.clipboardData!.files[0].size > 50);
+          const id = ++uploads;
+          // Cached native uploads can finish before asynchronous image decoding.
+          // The paste callback inserts only once the real URL is available.
+          void Promise.resolve(
+            `https://sns-img.xhscdn.com/test-${options.sameUrl ? 1 : id}.png`,
+          ).then((src) => {
+            if (options.upload === false) return;
+            win.setTimeout(
+              () =>
+                editor.commands.insertContentAt(editor.state.selection.to, {
+                  type: "image",
+                  attrs: {
+                    imgs: [
+                      {
+                        src,
+                        percent: 0,
+                        width: 410,
+                        height: 230,
+                        desc: "",
+                        assetId: `asset-${id}`,
+                      },
+                    ],
+                  },
+                }),
+              40,
+            );
+          });
+        }
+      : undefined,
   });
   win.document.querySelector("button")!.addEventListener("click", () => {
+    toolbarCalls++;
     // Simulate the site's native toolbar uploader, including a detached input.
     const input = win.document.createElement("input");
     input.type = "file";
@@ -187,7 +223,9 @@ function fixture(
           },
         );
       }
-      if (!options.blob)
+      // The native toolbar's upload result can arrive before the node exists,
+      // leaving a blob forever. Gallery fixtures retain that failed state.
+      if (!options.blob && !options.gallery)
         win.setTimeout(() => {
           editor.state.doc.descendants((node, pos) => {
             if (
@@ -249,6 +287,7 @@ function fixture(
     dom.window.close();
   };
   return {
+    toolbarCalls: () => toolbarCalls,
     win,
     editor,
     target,
@@ -308,6 +347,7 @@ for (const sameUrl of [false, true]) {
       const json = structuredClone(f.editor.getJSON());
       const images = json.content!.filter((n) => n.type === "image");
       assert.equal(f.uploads(), 3);
+      assert.equal(f.toolbarCalls(), 0);
       assert.deepEqual(
         images.map((n) => n.attrs!.imgs[0].assetId),
         ["asset-1", "asset-2", "asset-3"],
@@ -315,8 +355,7 @@ for (const sameUrl of [false, true]) {
       assert.ok(
         images.every(
           (n) =>
-            n.attrs!.imgs[0].percent === "100" &&
-            n.attrs!.imgs[0].width === 410,
+            n.attrs!.imgs[0].percent === 0 && n.attrs!.imgs[0].width === 410,
         ),
       );
       assert.equal(JSON.stringify(json).includes("MOGAOIMAGE"), false);
@@ -328,6 +367,22 @@ for (const sameUrl of [false, true]) {
     }
   });
 }
+test("Xiaohongshu native upload rejection leaves all markers and creates no blob preview", async () => {
+  const f = fixture({ gallery: true, threeImages: true, upload: false });
+  try {
+    await f.begin();
+    await assert.rejects(f.session.image(f.plan.images[0]), /未在/);
+    assert.equal(f.uploads(), 1);
+    assert.equal(f.toolbarCalls(), 0);
+    assert.equal(f.target.root.querySelectorAll("img").length, 0);
+    assert.ok(
+      f.plan.images.every((i) => f.target.root.textContent!.includes(i.marker)),
+    );
+    await assert.rejects(f.session.finish(), /还没有全部上传/);
+  } finally {
+    f.close();
+  }
+});
 test("existing drafts are rejected without mutating editor model", async () => {
   const f = fixture({ content: "<p>已有草稿</p>" });
   try {

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { JSDOM } from "jsdom";
 import Draft from "draft-js";
 import type { EditorState } from "draft-js";
-const { EditorState, ContentState, AtomicBlockUtils } = Draft;
+const { EditorState, AtomicBlockUtils, convertToRaw, convertFromRaw } = Draft;
 import { DraftDriver, type DraftHandle } from "../src/platforms/draftjs";
 import { EditorSession } from "../src/editor";
 import { prepareArticle } from "../src/package";
@@ -11,7 +11,12 @@ import { articleBlocks } from "../src/platforms/blocks";
 
 const png =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aD1sAAAAASUVORK5CYII=";
-function fixture(platform: "zhihu" | "x", fail = false, pendingMedia = false) {
+function fixture(
+  platform: "zhihu" | "x",
+  fail = false,
+  pendingMedia = false,
+  html?: string,
+) {
   const dom = new JSDOM(
     '<textarea placeholder="标题 Title"></textarea><button aria-label="图片">图片</button><div class="public-DraftEditor-content" contenteditable="true"></div>',
     {
@@ -72,6 +77,9 @@ function fixture(platform: "zhihu" | "x", fail = false, pendingMedia = false) {
     props: {
       editorState: EditorState.createEmpty(),
       onChange: (state) => {
+        // Both platforms serialize on change to save the article. A rendered
+        // string alone misses invalid character entity references.
+        convertToRaw(state.getCurrentContent());
         handle.props.editorState = state;
         render(state);
       },
@@ -91,11 +99,8 @@ function fixture(platform: "zhihu" | "x", fail = false, pendingMedia = false) {
       }
     }
   };
-  win.document.execCommand = (_op: string, _ui: boolean, text: string) => {
-    handle.props.onChange(
-      EditorState.createWithContent(ContentState.createFromText(text)),
-    );
-    return true;
+  win.document.execCommand = () => {
+    throw new Error("Do not seed a React-managed editor using execCommand");
   };
   const upload = (files: File[]) => {
     assert.equal(files.length, 1);
@@ -139,7 +144,9 @@ function fixture(platform: "zhihu" | "x", fail = false, pendingMedia = false) {
       version: 1,
       platform,
       title: "三图顺序测试",
-      html: `<p><strong>开头</strong></p><img src="${png}"><p>中间一</p><img src="${png}"><p>中间二</p><img src="${png}"><p>结尾</p>`,
+      html:
+        html ??
+        `<p><strong>开头</strong></p><img src="${png}"><p>中间一</p><img src="${png}"><p>中间二</p><img src="${png}"><p>结尾</p>`,
     },
     win,
   );
@@ -185,6 +192,45 @@ for (const platform of ["zhihu", "x"] as const) {
         "三图顺序测试",
       );
       assert.equal(f.uploads(), 3);
+      const saved = convertToRaw(content);
+      assert.deepEqual(convertToRaw(convertFromRaw(saved)), saved);
+    } finally {
+      f.session.cancel();
+      f.dom.window.close();
+    }
+  });
+}
+for (const platform of ["zhihu", "x"] as const) {
+  test(`${platform}: empty editor initializes without DOM seeding and saves plain text, links and emoji`, async () => {
+    const f = fixture(
+      platform,
+      false,
+      false,
+      '<h2>正文标题</h2><p>中文 🐈 <strong>重点</strong> <a href="https://example.com/article">来源</a>结尾。</p>',
+    );
+    try {
+      const { images, ...body } = f.plan;
+      assert.equal(images.length, 0);
+      await f.session.begin(body, []);
+      const content = f.handle.props.editorState.getCurrentContent();
+      const saved = convertToRaw(content);
+      assert.deepEqual(convertToRaw(convertFromRaw(saved)), saved);
+      assert.equal(saved.blocks[1].text, "中文 🐈 重点 来源结尾。");
+      assert.equal(saved.blocks[1].entityRanges.length, 1);
+      const range = saved.blocks[1].entityRanges[0];
+      assert.equal(
+        Array.from(saved.blocks[1].text)
+          .slice(range.offset, range.offset + range.length)
+          .join(""),
+        "来源",
+      );
+      assert.equal(
+        saved.entityMap[range.key].data.url,
+        "https://example.com/article",
+      );
+      assert.equal(content.getFirstBlock().getEntityAt(0), null);
+      assert.equal(f.uploads(), 0);
+      await f.session.finish();
     } finally {
       f.session.cancel();
       f.dom.window.close();
@@ -214,7 +260,10 @@ test("X decoded image without a completed media ID is not accepted or moved", as
   const f = fixture("x", false, true);
   try {
     const { images, ...body } = f.plan;
-    await f.session.begin(body, images.map((i) => i.marker));
+    await f.session.begin(
+      body,
+      images.map((i) => i.marker),
+    );
     await assert.rejects(f.session.image(images[0]), /未在/);
     assert.equal(f.uploads(), 1);
     assert.equal(f.root.querySelector("img").naturalWidth, 750);

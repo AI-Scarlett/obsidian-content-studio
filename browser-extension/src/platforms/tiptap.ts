@@ -8,6 +8,7 @@ export class TiptapDriver implements EditorDriver {
   private editor: Editor;
   private win: Window & typeof globalThis;
   private button?: HTMLElement;
+  private nativePaste = false;
   private stopped = false;
   cancel() {
     this.stopped = true;
@@ -27,7 +28,11 @@ export class TiptapDriver implements EditorDriver {
     this.win = root.ownerDocument.defaultView as Window & typeof globalThis;
   }
   async write(html: string, markers: string[]) {
-    if (markers.length)
+    // The current native paste callback waits for the platform upload before
+    // inserting its image node. The toolbar instead races image decoding with
+    // upload completion and can leave cached uploads stuck as blob previews.
+    this.nativePaste = !!this.editor.schema.nodes.image?.spec.attrs?.imgs;
+    if (markers.length && !this.nativePaste)
       this.button = await pictureButton(this.root.ownerDocument, "xiaohongshu");
     this.check();
     this.editor.commands.setContent(
@@ -57,11 +62,33 @@ export class TiptapDriver implements EditorDriver {
     this.editor.view.focus();
     await delay(this.win, 80);
     this.check();
+    const file = imageFile(this.win, image);
+    if (
+      this.nativePaste &&
+      ["image/png", "image/jpeg", "image/jpg"].includes(file.type)
+    ) {
+      const data = new this.win.DataTransfer();
+      data.items.add(file);
+      const event = new this.win.ClipboardEvent("paste", {
+        clipboardData: data,
+        bubbles: true,
+        cancelable: true,
+      });
+      // Invoke just the configured native upload callback. Dispatching a DOM
+      // paste could also trigger other plugins and insert a duplicate image.
+      this.editor.options.onPaste.call(
+        this.editor,
+        event,
+        this.editor.state.doc.slice(0, 0),
+      );
+      return;
+    }
+    this.button ||= await pictureButton(this.root.ownerDocument, "xiaohongshu");
     const button = this.button;
     if (!button?.isConnected) throw new Error("小红书图片工具栏已关闭。");
     await uploadThroughPicker(
       this.win,
-      imageFile(this.win, image),
+      file,
       () => button.click(),
       4000,
       () => !this.stopped,

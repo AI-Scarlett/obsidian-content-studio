@@ -177,28 +177,17 @@ export class DraftDriver implements EditorDriver {
         );
     }
     this.check();
-    let handle = this.handle();
-    const sample = () =>
-      handle.props.editorState
-        .getCurrentContent()
-        .getBlockMap()
-        .find((block) => !!block?.getCharacterList().first());
-    if (!sample()) {
-      // Obtain metadata from this platform's Draft.js version, as xPoster does.
-      this.root.focus();
-      this.root.ownerDocument.execCommand("insertText", false, "x");
-      const until = Date.now() + 2000;
-      while (!sample() && Date.now() < until) {
-        await delay(this.win, 60);
-        handle = this.handle();
-      }
-    }
-    this.check();
-    const template = sample();
+    const handle = this.handle();
+    let content = handle.props.editorState.getCurrentContent();
+    // Use the platform's own model constructors without inserting a seed into
+    // React's managed DOM. Zhihu can crash while reconciling execCommand edits.
+    const NativeContent = content.constructor as typeof ContentState;
+    if (typeof NativeContent.createFromText !== "function")
+      throw new Error("平台文档构造器不兼容，正文未修改。");
+    const template = NativeContent.createFromText(" ").getFirstBlock();
     const character = template?.getCharacterList().first();
     if (!template || !character?.getStyle)
       throw new Error("平台未接收文档初始化，已停止同步。");
-    let content = handle.props.editorState.getCurrentContent();
     let map = content.getBlockMap().clear();
     for (const block of articleBlocks(this.root.ownerDocument, html, markers)) {
       const key = this.win.crypto.randomUUID().replaceAll("-", "").slice(0, 12);
@@ -221,7 +210,15 @@ export class DraftDriver implements EditorDriver {
           (link) => i >= link.start && i < link.end,
         )?.entity;
         const C = character.constructor as typeof CharacterMetadata;
-        characters = characters.push(C.create({ style: styles, entity }));
+        // Draft.js serializers distinguish null (no entity) from undefined,
+        // which is treated as a missing entity key and breaks X autosave.
+        characters = characters.push(
+          C.create(
+            entity === undefined
+              ? { style: styles }
+              : { style: styles, entity },
+          ),
+        );
       }
       map = map.set(
         key,

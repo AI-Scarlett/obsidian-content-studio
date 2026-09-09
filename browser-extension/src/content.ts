@@ -4,15 +4,15 @@ import { WechatSession, wechatProbe } from "./platforms/wechat";
 import type { Command, Reply } from "./types";
 
 export interface MainRuntime {
-  version: 4;
+  version: 5;
   dispatch(owner: string, message: Command): Promise<Reply>;
 }
 const scope = globalThis as typeof globalThis & {
-  __mogaoArticleV4?: MainRuntime;
+  __mogaoArticleV5?: MainRuntime;
 };
 // Injected explicitly into MAIN only after a user sends a draft from Obsidian.
 // No page message listener, remote code, cookie export or publication endpoint.
-if (!scope.__mogaoArticleV4) {
+if (!scope.__mogaoArticleV5) {
   let session: EditorSession | WechatSession | undefined;
   let owner: string | undefined;
   let busy = false;
@@ -22,8 +22,8 @@ if (!scope.__mogaoArticleV4) {
     session = undefined;
     window.clearTimeout(timer);
   };
-  scope.__mogaoArticleV4 = {
-    version: 4,
+  scope.__mogaoArticleV5 = {
+    version: 5,
     async dispatch(requestOwner, message) {
       if (!/^[a-f\d-]{36}$/.test(requestOwner))
         return { ok: false, error: "发布任务标识不正确。" };
