@@ -148,6 +148,8 @@ export class DraftDriver implements EditorDriver {
   private win: Window & typeof globalThis;
   private button?: HTMLElement;
   private beforeKeys = new Set<string>();
+  private layout: ContentBlock[] = [];
+  private placements = new Map<string, { key: string; id: string }>();
   private stopped = false;
   cancel() {
     this.stopped = true;
@@ -273,6 +275,7 @@ export class DraftDriver implements EditorDriver {
       );
     }
     if (!map.size) throw new Error("文章正文为空。");
+    if (this.platform === "x") this.layout = map.valueSeq().toArray();
     push(handle, content.set("blockMap", map) as ContentState);
     await delay(this.win, 150);
   }
@@ -334,7 +337,7 @@ export class DraftDriver implements EditorDriver {
       );
     }
   }
-  async settle(image: InlineImage, _candidate: HTMLImageElement) {
+  async settle(image: InlineImage, candidate: HTMLImageElement) {
     this.check();
     const handle = this.handle(),
       content = handle.props.editorState.getCurrentContent();
@@ -350,6 +353,22 @@ export class DraftDriver implements EditorDriver {
     if (uploaded.length !== 1)
       throw new Error("图片上传产生了多个或未知文档块，已停止，避免图片错位。");
     const media = uploaded[0];
+    if (this.platform === "x") {
+      const id = mediaId(content.getEntity(media.getEntityAt(0)).getData());
+      if (
+        !id ||
+        this.imageIdentity(candidate) !== `x-media:${media.getKey()}:${id}`
+      )
+        throw new Error("图片与上传记录不一致，已停止，避免移动错误图片。");
+      const original = this.layout.find(
+        (block) => block.getText() === image.marker,
+      );
+      if (!original) throw new Error("未找到图片的原文位置，已停止同步。");
+      this.placements.set(original.getKey(), { key: media.getKey(), id });
+      this.restorePositions();
+      await delay(this.win, 150);
+      return;
+    }
     let next = map.clear();
     map.forEach((block, key) => {
       if (!block || !key || key === media.getKey()) return;
@@ -361,5 +380,106 @@ export class DraftDriver implements EditorDriver {
     // Preserve the original media block and entity; only change its position.
     push(handle, content.set("blockMap", next) as ContentState);
     await delay(this.win, 150);
+  }
+
+  /** Reapply the original block order using current native blocks, never stale content. */
+  private restorePositions() {
+    this.check();
+    const handle = this.handle();
+    const content = handle.props.editorState.getCurrentContent();
+    const map = content.getBlockMap();
+    let next = map.clear();
+    const consumed = new Set<string>();
+    for (const original of this.layout) {
+      const placement = this.placements.get(original.getKey());
+      const key = placement?.key || original.getKey();
+      const block = map.get(key);
+      if (!block)
+        throw new Error(
+          "X 草稿中的原文或图片记录已变化，已停止位置校正，请检查草稿。",
+        );
+      if (placement) {
+        const entityKey = block.getEntityAt(0);
+        if (block.getType() !== "atomic" || entityKey == null)
+          throw new Error("X 图片文档块已变化，已停止位置校正。");
+        const entity = content.getEntity(entityKey);
+        if (
+          entity.getType() !== "MEDIA" ||
+          mediaId(entity.getData()) !== placement.id
+        )
+          throw new Error("X 图片上传记录已变化，已停止位置校正。");
+        // A delayed platform update can restore the old marker as well as moving
+        // the media block. Remove only our exact, known marker, never user text.
+        let markerCount = 0;
+        map.forEach((candidate, candidateKey) => {
+          if (
+            candidate?.getType() !== "atomic" &&
+            candidate?.getText() === original.getText() &&
+            candidateKey
+          ) {
+            consumed.add(candidateKey);
+            markerCount++;
+          }
+        });
+        if (markerCount > 1)
+          throw new Error("图片位置标记重复，已停止位置校正。");
+        // A native insertion at offset zero can split the marker into a new
+        // block. Its old key is then an empty caret block, not the anchor.
+      } else if (
+        block.getText() !== original.getText() ||
+        block.getType() !== original.getType()
+      ) {
+        throw new Error("同步期间正文已变化，已停止位置校正，当前内容保留。");
+      }
+      consumed.add(key);
+      next = next.set(key, block);
+    }
+    // X creates empty caret blocks around native media. Retain them after the
+    // planned content; unrecognized nonempty or media blocks require review.
+    map.forEach((block, key) => {
+      if (!block || !key || consumed.has(key)) return;
+      if (block.getType() !== "unstyled" || block.getLength() !== 0)
+        throw new Error("X 草稿出现了额外内容，已停止位置校正，避免覆盖编辑。");
+      next = next.set(key, block);
+    });
+    if (!map.keySeq().equals(next.keySeq())) {
+      push(handle, content.set("blockMap", next) as ContentState);
+      return true;
+    }
+    return false;
+  }
+
+  async finish() {
+    if (this.platform !== "x" || !this.placements.size) return;
+    // Media callbacks may run after an individual image passed its first audit.
+    // Reconcile the entire article and observe a quiet interval before success.
+    // This guards local state; it is not proof of X's server-side autosave.
+    const deadline = Date.now() + 15000;
+    let stableSince = Date.now();
+    let previous = "";
+    while (Date.now() < deadline) {
+      this.check();
+      const changed = this.restorePositions();
+      const content = this.handle().props.editorState.getCurrentContent();
+      const signature = JSON.stringify(
+        content
+          .getBlocksAsArray()
+          .map((block) => [
+            block.getKey(),
+            block.getText(),
+            block.getType(),
+            block.getType() === "atomic"
+              ? mediaId(content.getEntity(block.getEntityAt(0)).getData())
+              : null,
+          ]),
+      );
+      if (changed || signature !== previous) stableSince = Date.now();
+      previous = signature;
+      if (Date.now() - stableSince >= 2500) return;
+      await delay(this.win, 200);
+    }
+    throw new Error(
+      "X 仍在更新图片位置，暂未确认稳定。草稿已保留，请检查后再继续。",
+    );
   }
 }

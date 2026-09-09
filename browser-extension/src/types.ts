@@ -50,6 +50,7 @@ export interface Reply {
 
 export interface EditorDriver {
   cancel?(): void;
+  finish?(): Promise<void>;
   ready?(): boolean;
   imageIdentity?(candidate: HTMLImageElement): string | undefined;
   write(html: string, markers: string[]): Promise<void>;

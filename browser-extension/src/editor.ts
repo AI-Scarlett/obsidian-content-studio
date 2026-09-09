@@ -328,6 +328,8 @@ export class EditorSession {
     this.check();
     if (!this.plan || this.urls.length !== this.markers.length)
       throw new Error("图片还没有全部上传。");
+    await this.driver?.finish?.();
+    this.check();
     const imgs = [...this.root.querySelectorAll("img")];
     if (
       imgs.length !== this.urls.length ||

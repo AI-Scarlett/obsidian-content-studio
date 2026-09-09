@@ -4,7 +4,7 @@ English | [简体中文](README.zh-CN.md)
 
 Format Obsidian notes for WeChat Official Accounts, Zhihu, Xiaohongshu and X. Choose one of six built-in templates, adjust typography and colors, or learn reusable styles from an article URL. The interface is currently in Simplified Chinese.
 
-Desktop only. This branch: 0.1.11 preview build with browser assistant 0.3.4. Requires Obsidian 1.8.7 or later; earlier native validation used 1.13.7. Formatting preserves your source text and runs locally. No AI account, API key or automatic publishing is required.
+Desktop only. This branch: 0.1.12 preview build with browser assistant 0.3.5. Requires Obsidian 1.8.7 or later; earlier native validation used 1.13.7. Formatting preserves your source text and runs locally. No AI account, API key or automatic publishing is required.
 
 ## Features
 
@@ -105,4 +105,4 @@ Start in Mogao with **发布到平台**. The extension automatically opens the s
 
 Click the browser assistant toolbar icon to open Obsidian and its Mogao workbench. Existing workbench edits are preserved; a newly opened workbench reads the active note. The first launch may require the browser’s external-app confirmation. The last-used vault must have Mogao enabled. On a pending publish handoff page, the icon continues that handoff instead.
 
-The 0.1.11 preview bundles browser assistant 0.3.4, with platform-specific media and draft adapters. Existing unpacked extension installations must be reloaded once after updating their files. See [the release notes](docs/releases/0.1.11.md) and [browser assistant documentation](browser-extension/README.md) for current validation boundaries.
+The 0.1.12 preview bundles browser assistant 0.3.5, with platform-specific media and draft adapters. Existing unpacked extension installations must be reloaded once after updating their files. See [the release notes](docs/releases/0.1.12.md) and [browser assistant documentation](browser-extension/README.md) for current validation boundaries.

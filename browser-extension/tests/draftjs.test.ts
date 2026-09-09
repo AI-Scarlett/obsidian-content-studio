@@ -26,6 +26,7 @@ function fixture(
     zhihuInput?: boolean;
     zhihuModal?: boolean;
     delayedId?: boolean;
+    atMarker?: boolean;
   } = {},
 ) {
   const dom = new JSDOM(
@@ -128,7 +129,9 @@ function fixture(
           ? `blob:https://x.com/test-${uploads}`
           : `https://pbs.twimg.com/media/test-${uploads}.png`;
     // The native uploader deliberately adds the atomic node at the end of the document.
-    const state = EditorState.moveSelectionToEnd(handle.props.editorState);
+    const state = options.atMarker
+      ? handle.props.editorState
+      : EditorState.moveSelectionToEnd(handle.props.editorState);
     const content = state
       .getCurrentContent()
       .createEntity(platform === "x" ? "MEDIA" : "IMAGE", "IMMUTABLE", {
@@ -236,6 +239,7 @@ function fixture(
 }
 for (const options of [
   { blob: true, remount: true, delayedId: true },
+  { blob: true, remount: true, atMarker: true },
   { zhihuInput: true },
   { zhihuModal: true },
 ]) {
@@ -299,6 +303,149 @@ test("X blob previews still require a platform media ID and an exact native bloc
   assert.equal(hasMediaId({ mediaItems: ["1234567890123456789"] }), true);
   assert.equal(hasMediaId({ width: 123456789, height: 987654321 }), false);
   assert.equal(hasMediaId({ mediaItems: ["local-preview"] }), false);
+});
+
+for (const restoreMarkers of [false, true])
+  test(`X final reconciliation restores two images moved to the end by delayed native updates (markers=${restoreMarkers})`, async () => {
+    const f = fixture(
+      "x",
+      false,
+      false,
+      `<img src="${png}"><p>首段</p><img src="${png}"><p>第二段</p><p>结尾</p>`,
+      { blob: true, remount: true },
+    );
+    try {
+      const { images, ...body } = f.plan;
+      await f.session.begin(
+        body,
+        images.map((i) => i.marker),
+      );
+      const seeded = f.handle.props.editorState
+        .getCurrentContent()
+        .getBlockMap();
+      for (const image of images) await f.session.image(image);
+      const original = convertToRaw(
+        f.handle.props.editorState.getCurrentContent(),
+      );
+      let moved = 0;
+      const lateUpdate = () => {
+        const state = f.handle.props.editorState;
+        const content = state.getCurrentContent();
+        const map = content.getBlockMap();
+        let next = restoreMarkers
+          ? seeded
+          : map.filter((b) => b?.getType() !== "atomic").toOrderedMap();
+        if (restoreMarkers)
+          map.forEach((b, key) => {
+            if (b?.getType() === "unstyled" && !b.getLength() && key)
+              next = next.set(key, b);
+          });
+        map.forEach((b, key) => {
+          if (b?.getType() === "atomic" && key) next = next.set(key, b);
+        });
+        f.handle.props.onChange(
+          EditorState.push(
+            state,
+            content.set("blockMap", next) as typeof content,
+            "insert-fragment",
+          ),
+        );
+        moved++;
+      };
+      f.win.setTimeout(lateUpdate, 350);
+      f.win.setTimeout(lateUpdate, 950);
+      await f.session.finish();
+      assert.equal(
+        moved,
+        2,
+        "completion must wait through delayed platform updates",
+      );
+      const saved = convertToRaw(
+        f.handle.props.editorState.getCurrentContent(),
+      );
+      assert.deepEqual(
+        saved,
+        original,
+        "restore complete saved document order and media metadata",
+      );
+      assert.deepEqual(convertToRaw(convertFromRaw(saved)), saved);
+      assert.equal(
+        f.uploads(),
+        2,
+        "moving uploaded images must not upload duplicates",
+      );
+    } finally {
+      f.session.cancel();
+      f.dom.window.close();
+    }
+  });
+
+test("X final reconciliation keeps a later text edit instead of restoring a stale article", async () => {
+  const f = fixture(
+    "x",
+    false,
+    false,
+    `<p>开头</p><img src="${png}"><p>结尾</p>`,
+    { blob: true },
+  );
+  try {
+    const { images, ...body } = f.plan;
+    await f.session.begin(
+      body,
+      images.map((i) => i.marker),
+    );
+    await f.session.image(images[0]);
+    f.win.setTimeout(() => {
+      const state = f.handle.props.editorState;
+      const content = state.getCurrentContent();
+      const block = content
+        .getBlocksAsArray()
+        .find((b) => b.getText() === "结尾")!;
+      const map = content
+        .getBlockMap()
+        .set(block.getKey(), block.set("text", "保留") as typeof block);
+      f.handle.props.onChange(
+        EditorState.push(
+          state,
+          content.set("blockMap", map) as typeof content,
+          "insert-characters",
+        ),
+      );
+    }, 350);
+    await assert.rejects(f.session.finish(), /正文已变化/);
+    assert.ok(f.root.textContent.includes("保留"));
+    assert.equal(f.uploads(), 1);
+  } finally {
+    f.session.cancel();
+    f.dom.window.close();
+  }
+});
+
+test("X cancellation during final position checks stops without further writes", async () => {
+  const f = fixture(
+    "x",
+    false,
+    false,
+    `<p>开头</p><img src="${png}"><p>结尾</p>`,
+  );
+  try {
+    const { images, ...body } = f.plan;
+    await f.session.begin(
+      body,
+      images.map((i) => i.marker),
+    );
+    await f.session.image(images[0]);
+    const saved = convertToRaw(f.handle.props.editorState.getCurrentContent());
+    f.win.setTimeout(() => f.session.cancel(), 350);
+    await assert.rejects(f.session.finish(), /同步已停止/);
+    assert.deepEqual(
+      convertToRaw(f.handle.props.editorState.getCurrentContent()),
+      saved,
+    );
+  } finally {
+    f.session.cancel();
+    f.dom.window.close();
+  }
 });
 for (const platform of ["zhihu", "x"] as const) {
   test(`${platform}: native upload preserves three positions, platform metadata and separate title`, async () => {

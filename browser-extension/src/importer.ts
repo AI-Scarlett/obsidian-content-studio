@@ -9,7 +9,7 @@ const runId = crypto.randomUUID();
 const headers = {
   "X-Mogao-Extension": chrome.runtime.id,
   "X-Mogao-Run": runId,
-  "X-Mogao-Protocol": "6",
+  "X-Mogao-Protocol": "7",
   "Content-Type": "application/json",
 };
 const names = {
@@ -54,10 +54,10 @@ async function pageCommand(frameId: number, message: Command): Promise<Reply> {
     func: async (owner: string, command: Command): Promise<Reply> => {
       const runtime = (
         globalThis as typeof globalThis & {
-          __mogaoArticleV6?: import("./content").MainRuntime;
+          __mogaoArticleV7?: import("./content").MainRuntime;
         }
-      ).__mogaoArticleV6;
-      if (runtime?.version !== 6)
+      ).__mogaoArticleV7;
+      if (runtime?.version !== 7)
         return { ok: false, error: "平台适配器未加载，请更新墨稿扩展。" };
       return runtime.dispatch(owner, command);
     },
@@ -219,6 +219,7 @@ async function run() {
       await command({ op: "image", image });
     }
     check();
+    await report("正在核对整篇图文的位置与显示状态…");
     const result = await command({ op: "finish" });
     if (result.progress?.navigate) {
       const next = new URL(result.progress.navigate);

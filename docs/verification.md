@@ -1,4 +1,8 @@
-# Verification scope for 0.1.11 preview / browser assistant 0.3.4
+# Verification scope for 0.1.12 preview / browser assistant 0.3.5
+
+## X delayed image placement
+
+The 0.3.5 adapter retains the original layout and reconciles existing native media blocks before the final position audit. Model tests cover repeated delayed moves of two images to the end, restored markers, native marker splitting, cancellation and changed text. A 2.5-second stable layout interval is bounded by 15 seconds; this is not a server autosave acknowledgment. Live read-only inspection of a fresh saved draft and its Preview showed its two images at the original paragraph positions; the reported end placement was not reproduced there. Complete new-adapter upload, browser reload and autosave/reopen acceptance are still pending. See [0.1.12 notes](releases/0.1.12.md).
 
 ## Zhihu and X image routes
 
@@ -8,7 +12,7 @@ Live inspection found a Zhihu material-library dialog with a separate image inpu
 
 The new icon route requests `obsidian://content-studio`; the plugin waits for workspace restoration and preserves existing workbench edits. 98 plugin tests and 48 companion tests pass. Native settings show 0.1.10 enabled; a newly opened workbench has the same complete Markdown and title as before the update, with 3/3 images loaded. Companion 0.3.3 files are deployed but its browser reload and toolbar wakeup have not been verified. A browser URI-link attempt produced no confirmed native transition. Cold application startup remains unverified. See [0.1.10 notes](releases/0.1.10.md).
 
-The current build is checked by 98 plugin tests and 54 companion tests, plus zero-warning Obsidian ESLint, CSS lint, TypeScript and production builds. Run `npm run verify`, `npm run verify:extension`, then `npm run package`.
+The current build is checked by 98 plugin tests and 59 companion tests, plus zero-warning Obsidian ESLint, CSS lint, TypeScript and production builds. Run `npm run verify`, `npm run verify:extension`, then `npm run package`.
 
 The companion tests serialize every Draft.js state update, round-trip title/body/media documents and link ranges with emoji, reject DOM seed writes, and exercise the current Xiaohongshu image-array contract with upload completion preceding node insertion. Failure, cancellation, duplicate uploads, old protocols, draft preservation and no final publication remain covered. Uploaders are test substitutes; the checks do not establish real-account success.
 

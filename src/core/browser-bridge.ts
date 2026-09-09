@@ -17,7 +17,7 @@ declare const MOGAO_EXTENSION_VERSION: string;
 const extensionVersion =
   typeof MOGAO_EXTENSION_VERSION === "string"
     ? MOGAO_EXTENSION_VERSION
-    : "0.3.4";
+    : "0.3.5";
 const extensionArchive =
   typeof MOGAO_EXTENSION_ZIP === "string" ? MOGAO_EXTENSION_ZIP : "";
 export type BridgePlatform = "wechat" | "xiaohongshu" | "zhihu" | "x";
@@ -249,10 +249,10 @@ export class BrowserBridge {
       this.json(res, 403, { error: "缺少本次发布窗口标识。" });
       return;
     }
-    if (req.headers["x-mogao-protocol"] !== "6") {
+    if (req.headers["x-mogao-protocol"] !== "7") {
       this.json(res, 426, {
         error:
-          "浏览器仍在运行旧版墨稿扩展。文件已更新时，请在扩展管理页重新加载，确认版本为 0.3.4 或更新，再从墨稿发布。旧版不会接收这篇稿件。",
+          "浏览器仍在运行旧版墨稿扩展。文件已更新时，请在扩展管理页重新加载，确认版本为 0.3.5 或更新，再从墨稿发布。旧版不会接收这篇稿件。",
       });
       return;
     }
