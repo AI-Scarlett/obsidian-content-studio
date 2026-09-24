@@ -15,6 +15,7 @@ import {
 } from "obsidian";
 import { shell } from "electron";
 import { Studio, type Host, type OutputFile } from "./ui/studio";
+import { SupportModal } from "./ui/support";
 import {
   DEFAULT_SETTINGS,
   PLATFORMS,
@@ -398,6 +399,12 @@ class StudioSettings extends PluginSettingTab {
   getSettingDefinitions(): SettingDefinitionItem[] {
     return [
       {
+        name: "支持开发",
+        desc: "如果墨稿帮到了你，欢迎请作者喝杯咖啡。打赏完全自愿。",
+        aliases: ["打赏", "赞助", "二维码"],
+        render: (setting) => this.addSupportButton(setting),
+      },
+      {
         name: "内容包保存目录",
         desc: "相对于当前笔记库；每次导出都会新建目录，保留之前的稿件。",
         aliases: ["导出", "图片", "保存路径"],
@@ -420,6 +427,13 @@ class StudioSettings extends PluginSettingTab {
       },
     ];
   }
+  private addSupportButton(setting: Setting): void {
+    setting.addButton((button) =>
+      button.setButtonText("查看打赏二维码").onClick(() => {
+        new SupportModal(this.app).open();
+      }),
+    );
+  }
   getControlValue(key: string): unknown {
     return key === "exportFolder"
       ? this.plugin.settings.exportFolder
@@ -434,6 +448,11 @@ class StudioSettings extends PluginSettingTab {
   // Legacy Obsidian versions use display(); 1.13+ uses the searchable definitions above.
   display() {
     this.containerEl.empty();
+    this.addSupportButton(
+      new Setting(this.containerEl)
+        .setName("支持开发")
+        .setDesc("如果墨稿帮到了你，欢迎请作者喝杯咖啡。打赏完全自愿。"),
+    );
     this.containerEl.createEl("p", {
       text: "笔记在本地排版，点击保存后生成独立内容包。通过侧边栏的报纸图标或命令面板打开。",
     });

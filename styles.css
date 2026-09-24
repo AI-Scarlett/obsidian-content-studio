@@ -1412,3 +1412,16 @@
   max-height: 280px;
   object-fit: contain;
 }
+
+.mg-support-modal img {
+  display: block;
+  width: 320px;
+  max-width: 100%;
+  height: auto;
+  margin: 16px auto;
+  border-radius: 12px;
+}
+.mg-support-modal .mg-support-note {
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+}

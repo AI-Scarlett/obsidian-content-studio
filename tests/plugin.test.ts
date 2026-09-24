@@ -153,6 +153,7 @@ function harness(saved: any = null) {
       }
     },
     PluginSettingTab: class {},
+    Modal: class {},
     Setting: class {},
     Notice: class {
       constructor(message: string) {
@@ -429,7 +430,7 @@ test("searchable settings definitions preserve export folder validation", async 
   await h.plugin.onload();
   const tab = h.plugin.settingTabs[0];
   const definitions = tab.getSettingDefinitions();
-  const control = definitions[0].control;
+  const control = definitions.find((definition: any) => definition.control?.key === "exportFolder").control;
   assert.equal(control.key, "exportFolder");
   assert.equal(control.validate("导出/内容"), undefined);
   assert.ok(control.validate("../outside"));

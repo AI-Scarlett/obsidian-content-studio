@@ -10,8 +10,10 @@ const extensionZip = await readFile(
 );
 const license = await readFile("LICENSE", "utf8");
 const notices = await readFile("THIRD_PARTY_NOTICES.md", "utf8");
+const donationQr = await readFile("docs/images/wechat-donation-qr.jpg");
 await build({
   define: {
+    MOGAO_DONATION_QR: JSON.stringify(`data:image/jpeg;base64,${donationQr.toString("base64")}`),
     MOGAO_EXTENSION_ZIP: JSON.stringify(extensionZip.toString("base64")),
     MOGAO_EXTENSION_VERSION: JSON.stringify(extensionManifest.version),
   },
