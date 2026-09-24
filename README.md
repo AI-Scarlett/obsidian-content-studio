@@ -114,6 +114,18 @@ Source: `src/main.ts` (Obsidian host), `src/ui/studio.ts` (workbench), `src/core
 
 MIT © 2026 AI-Scarlett. See [LICENSE](LICENSE) and [third-party notices](THIRD_PARTY_NOTICES.md).
 
+## Support development
+
+If Mogao Content Studio saves you time formatting and sharing your notes, you're welcome to buy me a coffee via WeChat Pay. Your support helps me maintain the plugin, improve templates, and keep platform integrations working.
+
+Donations are entirely optional. Reporting bugs, sharing suggestions, and starring the project are also appreciated. Thank you for your support!
+
+<a href="docs/images/wechat-donation-qr.jpg">
+  <img src="docs/images/wechat-donation-qr.jpg" alt="WeChat Pay QR code for voluntary donations" width="300">
+</a>
+
+Scan with WeChat, or click the image to view it at full size.
+
 ## Browser publishing assistant (preview)
 
 Start in Mogao with **发布到平台**. The extension automatically opens the selected platform, waits for login, and synchronizes the current article with inline image uploads and separate title. Missing extensions lead to installation onboarding with a bundled download. [Installation, permissions and validation limits](browser-extension/README.md). Full real-platform extension acceptance remains pending.
