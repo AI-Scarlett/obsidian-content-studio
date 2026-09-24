@@ -2,6 +2,8 @@
 
 English | [简体中文](README.zh-CN.md)
 
+> ☕ If this plugin helps you, [jump to the donation QR code at the end](#support-development) and buy the author a coffee. Thank you for your support!
+
 Format Obsidian notes for WeChat Official Accounts, Zhihu, Xiaohongshu and X. Choose one of six built-in templates, adjust typography and colors, or learn reusable styles from an article URL. The interface is currently in Simplified Chinese.
 
 Desktop only. This branch: 0.1.18 preview build with browser assistant 0.3.8. Requires Obsidian 1.8.7 or later; earlier native validation used 1.13.7. Formatting preserves your source text and runs locally. No AI account, API key or automatic publishing is required.
@@ -114,18 +116,6 @@ Source: `src/main.ts` (Obsidian host), `src/ui/studio.ts` (workbench), `src/core
 
 MIT © 2026 AI-Scarlett. See [LICENSE](LICENSE) and [third-party notices](THIRD_PARTY_NOTICES.md).
 
-## Support development
-
-If Mogao Content Studio saves you time formatting and sharing your notes, you're welcome to buy me a coffee via WeChat Pay. Your support helps me maintain the plugin, improve templates, and keep platform integrations working.
-
-Donations are entirely optional. Reporting bugs, sharing suggestions, and starring the project are also appreciated. Thank you for your support!
-
-<a href="docs/images/wechat-donation-qr.jpg">
-  <img src="docs/images/wechat-donation-qr.jpg" alt="WeChat Pay QR code for voluntary donations" width="300">
-</a>
-
-Scan with WeChat, or click the image to view it at full size.
-
 ## Browser publishing assistant (preview)
 
 Start in Mogao with **发布到平台**. The extension automatically opens the selected platform, waits for login, and synchronizes the current article with inline image uploads and separate title. Missing extensions lead to installation onboarding with a bundled download. [Installation, permissions and validation limits](browser-extension/README.md). Full real-platform extension acceptance remains pending.
@@ -147,3 +137,15 @@ The 0.1.18 preview bundles browser assistant 0.3.8, with platform-specific media
 ### Template engine in 0.1.18
 
 Built-in themes now have distinct paragraph typography and spacing. Reference sampling uses Juice to resolve CSS selectors and variables, and transfers supported nested heading boxes and number slots without retaining the original article text or media. Existing templates are preserved; resample a source to acquire the new structure. See [research and limitations](docs/template-engine-research.md), including the GitHub implementations studied.
+
+## Support development
+
+If Mogao Content Studio saves you time formatting and sharing your notes, you're welcome to buy me a coffee via WeChat Pay. Your support helps me maintain the plugin, improve templates, and keep platform integrations working.
+
+Donations are entirely optional. Reporting bugs, sharing suggestions, and starring the project are also appreciated. Thank you for your support!
+
+<a href="docs/images/wechat-donation-qr.jpg">
+  <img src="docs/images/wechat-donation-qr.jpg" alt="WeChat Pay QR code for voluntary donations" width="300">
+</a>
+
+Scan with WeChat, or click the image to view it at full size.
